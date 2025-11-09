@@ -81,23 +81,19 @@ public class Scan {
 //                        Extension.saveLogFile(attackReqResp,montoyaApi);
                         saveLogFile.appendHttpData(attackReqResp);
 //                        montoyaApi.logging().logToOutput("已发送FastJSON Payload[" + (i + 1) + "]：" + payloadStr);
-                        // 查询dnslog平台结果
-                        // 初始化结果检查器
+                        // DNS校验
                         CheckDnslogResult dnsChecker = new CheckDnslogResult(
                                 montoyaApi,
-                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, // 目标域名
-                                topDomain + "." + timestamp //checkdonlog关键词
+                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
+                                config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
                         );
-                        Boolean dnslogResult = dnsChecker.check();
-//                        Boolean dnslogResult = checkDnslogResult.checkCeyeDnslog(topDomain+"."+timestamp);
                         // 发现漏洞就添加到标签页内（后台执行）
-                        if (dnslogResult) {
-                            // 加入到存在漏洞的存储列表中
-                            executor.submit(()->
-                                    mySuiteTab.addRequestInfo(attackReqResp)
-                            );
-                            montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
-                        }
+                        executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
+                            if (dnsChecker.check()) {
+                                mySuiteTab.addRequestInfo(attackReqResp);
+                                montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
+                            }
+                        });
                     }
                 }
 
@@ -156,22 +152,19 @@ public class Scan {
 //                                "请求[" + i + "]已发送Payload[" + (p + 1) + "]：" + payloadStr
 //                        );
 
-                        // 检查DNSlog结果
-                        // 初始化结果检查器
+                        // DNS校验
                         CheckDnslogResult dnsChecker = new CheckDnslogResult(
                                 montoyaApi,
-                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, // 目标域名
-                                topDomain + "." + timestamp //checkdonlog关键词
+                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
+                                config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
                         );
-                        Boolean dnslogResult = dnsChecker.check();
-//                        Boolean dnslogResult = checkDnslogResult.checkCeyeDnslog(topDomain + "." + timestamp);
-                        if (dnslogResult) {
-                            // 加入到存在漏洞的存储列表中
-                            executor.submit(()->
-                                    mySuiteTab.addRequestInfo(attackReqResp)
-                            );
-                            montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
-                        }
+                        // 发现漏洞就添加到标签页内（后台执行）
+                        executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
+                            if (dnsChecker.check()) {
+                                mySuiteTab.addRequestInfo(attackReqResp);
+                                montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
+                            }
+                        });
                     }
                 }
             }
@@ -233,11 +226,6 @@ public class Scan {
             String timestamp = String.valueOf(System.currentTimeMillis());
             // 初始化配置
             Config config = new Config(timestamp,topDomain,DnslogConfig.getInstance().collaboratorDomain);
-            montoyaApi.logging().logToOutput("domain"+DnslogConfig.getInstance().collaboratorDomain);
-            montoyaApi.logging().logToOutput("domain2"+config.collaboratorDomain);
-
-            //            Config config = new Config(timestamp, topDomain);
-            String dnsDomain = config.ceyeApiDomain;
 
             if (config.log4jPayload == null || config.log4jPayload.isEmpty()) {
                 montoyaApi.logging().logToError("Log4j探测失败：Config未配置log4jPayload");
@@ -255,10 +243,6 @@ public class Scan {
                     montoyaApi.logging().logToOutput("跳过空Payload[" + (i + 1) + "]");
                     continue;
                 }
-
-                // 替换Payload中的%s为实际DNS域名（如果Config中没替换的话）
-                // 注意：如果Config的log4jPayload已通过String.format替换%s，这步可省略
-                payloadStr = payloadStr.replace("%s", dnsDomain);
 
                 // 参数值URL编码（请求头无需编码）
                 String encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
@@ -279,18 +263,16 @@ public class Scan {
                 // DNS校验
                 CheckDnslogResult dnsChecker = new CheckDnslogResult(
                         montoyaApi,
-                        config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, // 目标域名
-                        topDomain + "." + timestamp //checkdonlog关键词
+                        config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
+                        config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
                 );
-                Boolean dnslogResult = dnsChecker.check();
-                if (dnslogResult) {
-                    // 加入到存在漏洞的存储列表中
-                    executor.submit(()->
-                            mySuiteTab.addRequestInfo(attackReqResp)
-                    );
-
-                    montoyaApi.logging().logToOutput("发现Log4j反序列化漏洞 URL：" + attackReqResp.request().url());
-                }
+                // 发现漏洞就添加到标签页内（后台执行）
+                executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
+                    if (dnsChecker.check()) {
+                        mySuiteTab.addRequestInfo(attackReqResp);
+                        montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
+                    }
+                });
             }
 
 //            montoyaApi.logging().logToOutput("Log4j全方位探测所有Payload已发送完成");

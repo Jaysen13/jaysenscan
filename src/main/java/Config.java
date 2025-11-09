@@ -10,7 +10,7 @@ public class Config {
     String collaboratorDomain; // 存储Collaborator域名
     public static enum DnslogType { CEYE, COLLABORATOR } // 规范枚举类命名（首字母大写）
     public DnslogType dnslogType; // 当前选中的DNSlog类型
-    static String scanLogPath = "D:/";
+    static String scanLogPath = System.getProperty("user.home") + "/.burp/jayesnScanLogs";;
 
     // 接收时间戳、顶级域名，以及从UI获取的配置
     public Config(String timestamp, String topDomain, String collaboratorDomain) {

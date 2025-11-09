@@ -27,6 +27,7 @@ public class CheckDnslogResult {
         // 从UI配置中读取CEYE APIKey（仅CEYE平台需要）
         this.ceyeApiKey = DnslogConfig.getInstance().ceyeApiKey;
         this.keyWord = keyWord;
+//        montoyaApi.logging().logToOutput("keyWord=" + keyWord);
     }
 
     /**
@@ -35,10 +36,10 @@ public class CheckDnslogResult {
     public Boolean check() {
         this.dnslogType = DnslogConfig.getInstance().donlogType;
 
-        montoyaApi.logging().logToOutput("目前配置的类型是 " + dnslogType);
         if (dnslogType == Config.DnslogType.CEYE) {
             return checkCeyeDnslog(this.keyWord);
         } else {
+//            montoyaApi.logging().logToOutput("目前配置的类型是 " + dnslogType);
             CollaboratorClient collaboratorClient = DnslogConfig.getInstance().domainToClientMap.get(DnslogConfig.getInstance().collaboratorDomain);
             List<String> result = checkCollaboratorDnslog(collaboratorClient, this.keyWord);
             // 非空返回true
@@ -117,6 +118,7 @@ public class CheckDnslogResult {
             String keyword // 搜索关键词
     ) {
         List<String> matchedResults = new ArrayList<>();
+//        List<String> aaa = new ArrayList<>();
         List<Interaction> interactions = collabClient.getAllInteractions();
 
         for (Interaction interaction : interactions) {
@@ -144,8 +146,14 @@ public class CheckDnslogResult {
                 );
                 matchedResults.add(result);
             }
+//            String resultaaa = String.format(
+//                    "%s",
+//                    queryStr
+//            );
+//            aaa.add(resultaaa);
         }
-
+//        montoyaApi.logging().logToOutput("查询成功:"+matchedResults);
+//        montoyaApi.logging().logToOutput("aaaa:"+aaa);
         return matchedResults;
     }
 }

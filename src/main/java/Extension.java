@@ -20,6 +20,16 @@ public class Extension implements BurpExtension {
     @Override
     public void initialize(MontoyaApi montoyaApi) {
         montoyaApi.extension().setName("JaySenScan");
+        montoyaApi.logging().logToOutput("""
+                    _                                                                      __      __  __        ___ \s
+                   (_)                                                                     \\ \\    / / /_ |      / _ \\\s
+                    _    __ _   _   _   ___    ___   _ __    ___    ___    __ _   _ __      \\ \\  / /   | |     | | | |
+                   | |  / _` | | | | | / __|  / _ \\ | '_ \\  / __|  / __|  / _` | | '_ \\      \\ \\/ /    | |     | | | |
+                   | | | (_| | | |_| | \\__ \\ |  __/ | | | | \\__ \\ | (__  | (_| | | | | |      \\  /     | |  _  | |_| |
+                   | |  \\__,_|  \\__, | |___/  \\___| |_| |_| |___/  \\___|  \\__,_| |_| |_|       \\/      |_| (_)  \\___/\s
+                  _/ |           __/ |                                                                               \s
+                 |__/           |___/                                                                                \s
+                """);
         DnslogConfig.getInstance();
         // 初始化自定义线程池
         PluginTaskExecutor executor = new PluginTaskExecutor(
