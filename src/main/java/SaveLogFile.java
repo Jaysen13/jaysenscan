@@ -38,7 +38,7 @@ public class SaveLogFile {
         this.baseDir = Config.scanLogPath + "jaysenscanlog/";
         this.prefix = "jaysenscanlog_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_";
         this.maxFileSize = 10 * 1024 * 1024; // 10MB
-        this.retainDays = 30; // 保留30天日志
+        this.retainDays = 7; // 保留7天日志
         initDir();
         cleanExpiredLogs(); // 启动时清理过期日志
     }
