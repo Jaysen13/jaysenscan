@@ -20,10 +20,7 @@ import javax.security.auth.callback.Callback;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,21 +41,18 @@ public class Scan {
      */
     public void fastJsonScan(HttpRequestToBeSent request, List<JsonData> rawDatas) {
         SaveLogFile saveLogFile = new SaveLogFile();
-        String topDomain = "fjson";
+        String topDomain1 = "fjson";
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
             try {
                 String timestamp = String.valueOf(System.currentTimeMillis());
-
-
-                Config config = new Config(timestamp,topDomain,DnslogConfig.getInstance().collaboratorDomain);
-
+                Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
                 // 解析Config类中的fastjsonPayload为JSONArray
                 JSONArray payloads = JSONArray.parseArray(config.fastjsonPayload);
                 // 遍历所有待替换的JSON数据（来自GET参数、POST参数、请求体）
                 for (JsonData rawData : rawDatas){
                     // 循环遍历Payload集合，逐个发送
                     for (int i = 0; i < payloads.size(); i++) {
-//                        JSONObject payload = payloads.getJSONObject(i);
-//                        String payloadStr = payload.toJSONString();
+
                         Object payloadObj = payloads.get(i);
                         String payloadStr;
 
@@ -68,55 +62,43 @@ public class Scan {
                         } else if (payloadObj instanceof JSONArray) {
                             payloadStr = ((JSONArray) payloadObj).toJSONString(); // 数组类型直接序列化
                         } else {
-                            montoyaApi.logging().logToOutput("Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
+                            this.montoyaApi.logging().logToOutput("Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
                             continue;
                         }
+//                        this.montoyaApi.logging().logToOutput("[DEBUG]payload: " + payloadStr);
                         // 根据JSON数据来源位置，替换对应的部分
                         HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr);
                         // 添加标记头
                         modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan","true");
                         // 发送修改后的请求
-                        HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(modifiedRequest);
+                        HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
                         // 加入已发送请求的存储日志中
-//                        Extension.saveLogFile(attackReqResp,montoyaApi);
                         saveLogFile.appendHttpData(attackReqResp);
-//                        montoyaApi.logging().logToOutput("已发送FastJSON Payload[" + (i + 1) + "]：" + payloadStr);
-                        // DNS校验
-                        CheckDnslogResult dnsChecker = new CheckDnslogResult(
-                                montoyaApi,
-                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
-                                config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
-                        );
-                        // 发现漏洞就添加到标签页内（后台执行）
-                        executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
-                            if (dnsChecker.check()) {
-                                mySuiteTab.addRequestInfo(attackReqResp);
-                                montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
-                            }
-                        });
+                        // 不立即检查DNSLOG，而是添加到批量缓存
+                        CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
+
                     }
                 }
-
-//                montoyaApi.logging().logToOutput("FastJSON扫描所有Payload已发送完成");
-            } catch (Exception e) {
-                montoyaApi.logging().logToError("FastJSON扫描过程出错：" + e.getMessage());
+            }
+            catch (Exception e) {
+                this.montoyaApi.logging().logToError("FastJSON扫描过程出错：" + e.getMessage());
             }
     }
+
     // 参数类型改为List接口，提高灵活性
     public void fastJsonScan(List<HttpRequest> requests, List<List<JsonData>> rawDatass) {
-        String topDomain = "fjson";
+        String topDomain1 = "fjson";
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
         try {
             // 边界检查：确保请求列表和JSON数据列表的长度一致
             if (requests.size() != rawDatass.size()) {
-                montoyaApi.logging().logToError("请求数量与JSON数据列表数量不匹配，终止扫描");
+                this.montoyaApi.logging().logToError("请求数量与JSON数据列表数量不匹配，终止扫描");
                 return;
             }
 
             String timestamp = String.valueOf(System.currentTimeMillis());
             // 初始化配置
-            Config config = new Config(timestamp,topDomain,DnslogConfig.getInstance().collaboratorDomain);
-
-            //            Config config = new Config(timestamp, topDomain);
+            Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
             JSONArray payloads = JSONArray.parseArray(config.fastjsonPayload);
 
             // 遍历每个请求，通过索引关联对应的JSON数据列表（一一对应）
@@ -126,7 +108,7 @@ public class Scan {
 
                 // 若当前请求无JSON数据，跳过
                 if (rawDatas == null || rawDatas.isEmpty()) {
-                    montoyaApi.logging().logToOutput("请求[" + i + "]无JSON数据，跳过扫描");
+                    this.montoyaApi.logging().logToOutput("请求[" + i + "]无JSON数据，跳过扫描");
                     continue;
                 }
 
@@ -143,35 +125,19 @@ public class Scan {
                         modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan", "true");
 
                         // 发送请求
-                        HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(modifiedRequest);
+                        HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
 //                        Extension.attackReqResps.add(attackReqResp);
                         SaveLogFile saveLogFile = new SaveLogFile();
                         saveLogFile.appendHttpData(attackReqResp);
-
-//                        montoyaApi.logging().logToOutput(
-//                                "请求[" + i + "]已发送Payload[" + (p + 1) + "]：" + payloadStr
-//                        );
-
-                        // DNS校验
-                        CheckDnslogResult dnsChecker = new CheckDnslogResult(
-                                montoyaApi,
-                                config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
-                                config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
-                        );
-                        // 发现漏洞就添加到标签页内（后台执行）
-                        executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
-                            if (dnsChecker.check()) {
-                                mySuiteTab.addRequestInfo(attackReqResp);
-                                montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
-                            }
-                        });
+                        // 不立即检查DNSLOG，而是添加到批量缓存
+                        CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
                     }
                 }
             }
 
 //            montoyaApi.logging().logToOutput("所有请求的FastJSON扫描已完成");
         } catch (Exception e) {
-            montoyaApi.logging().logToError("FastJSON扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("FastJSON扫描出错：" + e.getMessage());
         }
     }
 
@@ -221,14 +187,15 @@ public class Scan {
      * Log4j 全版本漏洞探测
      * */
     public void log4jScan(HttpRequestToBeSent request) {
-        String topDomain = "log4j";
+        String topDomain1 = "log4j";
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
         try {
             String timestamp = String.valueOf(System.currentTimeMillis());
             // 初始化配置
-            Config config = new Config(timestamp,topDomain,DnslogConfig.getInstance().collaboratorDomain);
+            Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
 
             if (config.log4jPayload == null || config.log4jPayload.isEmpty()) {
-                montoyaApi.logging().logToError("Log4j探测失败：Config未配置log4jPayload");
+                this.montoyaApi.logging().logToError("Log4j探测失败：Config未配置log4jPayload");
                 return;
             }
 
@@ -240,7 +207,7 @@ public class Scan {
                 // 修复：getString(i) 提取字符串类型的Payload
                 String payloadStr = payloads.getString(i);
                 if (payloadStr == null || payloadStr.trim().isEmpty()) {
-                    montoyaApi.logging().logToOutput("跳过空Payload[" + (i + 1) + "]");
+                    this.montoyaApi.logging().logToOutput("跳过空Payload[" + (i + 1) + "]");
                     continue;
                 }
 
@@ -255,29 +222,18 @@ public class Scan {
                         .withAddedHeader("JaySen-Log4j-Payload-Index", String.valueOf(i + 1));
 
                 // 发送请求
-                HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(modifiedRequest);
+                HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
                 // 保存日志
                 SaveLogFile saveLogFile = new SaveLogFile();
                 saveLogFile.appendHttpData(attackReqResp);
+                // 暂不校验dnslog  添加缓存
+                CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
 
-                // DNS校验
-                CheckDnslogResult dnsChecker = new CheckDnslogResult(
-                        montoyaApi,
-                        config.dnslogType == Config.DnslogType.CEYE ? config.ceyeApiDomain : config.collaboratorDomain, //  域名
-                        config.dnslogType == Config.DnslogType.CEYE ? topDomain + "." + timestamp : topDomain //checkdonlog关键词
-                );
-                // 发现漏洞就添加到标签页内（后台执行）
-                executor.submit(() -> {  // 注意：()-> 后直接跟 {，没有分号
-                    if (dnsChecker.check()) {
-                        mySuiteTab.addRequestInfo(attackReqResp);
-                        montoyaApi.logging().logToOutput("发现FastJson反序列化漏洞，URL：" + attackReqResp.request().url());
-                    }
-                });
             }
 
 //            montoyaApi.logging().logToOutput("Log4j全方位探测所有Payload已发送完成");
         } catch (Exception e) {
-            montoyaApi.logging().logToError("Log4j全方位扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("Log4j全方位扫描出错：" + e.getMessage());
         }
     }
 
