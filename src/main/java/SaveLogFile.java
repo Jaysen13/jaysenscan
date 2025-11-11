@@ -35,7 +35,7 @@ public class SaveLogFile {
 
     // 构造方法：可配置分割大小、保留天数等
     public SaveLogFile() {
-        this.baseDir = Config.scanLogPath + "jaysenscanlog/";
+        this.baseDir = DnslogConfig.getInstance().logPath + "/";
         this.prefix = "jaysenscanlog_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_";
         this.maxFileSize = 10 * 1024 * 1024; // 10MB
         this.retainDays = 7; // 保留7天日志

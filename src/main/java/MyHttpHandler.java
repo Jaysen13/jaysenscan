@@ -21,6 +21,16 @@ public class MyHttpHandler implements HttpHandler {
         String host = httpRequestToBeSent.headerValue("Host");
         String fjson_flag = httpRequestToBeSent.headerValue("JaySen-FastJson-Scan");
         String log4j_flag = httpRequestToBeSent.headerValue("JaySen-Log4j-Scan");
+        Boolean fjsonEnable = DnslogConfig.getInstance().fastJsonScanEnabled;
+        Boolean log4jEnable = DnslogConfig.getInstance().log4jScanEnabled;
+        // 过滤未开启的扫描
+        if (!fjsonEnable) {
+            fjson_flag = "true";
+        }
+        if (!log4jEnable) {
+            log4j_flag = "true";
+        }
+        // 未扫描的赋值flag
         if (fjson_flag == null) {
             fjson_flag = "false";
         }

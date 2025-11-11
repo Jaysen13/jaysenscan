@@ -8,8 +8,10 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class MySuiteTab {
     private final JPanel panel;
@@ -26,8 +28,8 @@ public class MySuiteTab {
     private final JScrollPane responseScrollPane;
     private final List<HttpRequestResponse> requestResponses = new ArrayList<>();
     private final MontoyaApi montoyaApi;
-
-    // 新增：配置面板相关组件
+    private DnslogConfig dnslogConfig;
+    // 配置面板相关组件
     private final JPanel configPanel; // 配置内容面板（默认隐藏）
     private boolean configExpanded = false; // 配置面板展开状态
 
@@ -35,6 +37,7 @@ public class MySuiteTab {
         this.montoyaApi = montoyaApi;
         panel = new JPanel();
         panel.setLayout(new BorderLayout());
+        this.dnslogConfig = DnslogConfig.getInstance();
 
         // ==============================================
         // 顶部区域：新增配置按钮 + 配置面板 + 原有清空按钮
@@ -130,156 +133,79 @@ public class MySuiteTab {
 
     }
 
-    // ==============================================
-    // 新增：创建配置面板内容（DNSlog平台选择等）
-    // ==============================================
     private JPanel createConfigPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
+        // 主配置面板（三栏布局）
+        JPanel mainConfigPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 10, 5, 10);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weighty = 1.0; // 垂直方向占满空间
+
+
+        // ==============================================
+        // 左侧区域：DNSlog配置（原配置内容）
+        // ==============================================
+        JPanel leftPanel = new JPanel(new GridBagLayout());
+        leftPanel.setBorder(BorderFactory.createTitledBorder("DNSlog配置"));
+        GridBagConstraints leftGbc = new GridBagConstraints();
+        leftGbc.insets = new Insets(5, 5, 5, 5);
+        leftGbc.anchor = GridBagConstraints.WEST;
+        leftGbc.fill = GridBagConstraints.HORIZONTAL;
+        leftGbc.gridx = 0;
+        leftGbc.gridwidth = 2; // 统一占2列，避免布局错乱
 
         // 1. DNSlog平台选择
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        panel.add(new JLabel("DNSlog平台:"), gbc);
-        gbc.gridx = 1;
+        leftGbc.gridy = 0;
+        leftPanel.add(new JLabel("DNSlog平台:"), leftGbc);
+        leftGbc.gridy++;
         JComboBox<String> platformSelector = new JComboBox<>(new String[]{"collaborator", "ceye"});
-        platformSelector.setSelectedItem(DnslogConfig.getInstance().platform);
-        panel.add(platformSelector, gbc);
+        platformSelector.setSelectedItem(dnslogConfig.platform);
+        leftPanel.add(platformSelector, leftGbc);
 
-        // 2. Collaborator域名（新增“自动生成”按钮）
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        panel.add(new JLabel("Collaborator域名:"), gbc);
-
+        // 2. Collaborator域名 + 自动生成按钮
+        leftGbc.gridy++;
+        leftPanel.add(new JLabel("Collaborator域名:"), leftGbc);
+        leftGbc.gridy++;
         JPanel collabDomainPanel = new JPanel(new BorderLayout());
-        JTextField collabDomainField = new JTextField(25);
-        collabDomainField.setText(DnslogConfig.getInstance().collaboratorDomain);
+        JTextField collabDomainField = new JTextField(20);
+        collabDomainField.setText(dnslogConfig.collaboratorDomain);
         collabDomainPanel.add(collabDomainField, BorderLayout.CENTER);
-
         JButton generateBtn = new JButton("自动生成");
         generateBtn.addActionListener(e -> {
-            // 生成域名
             String collaboratorDomain = CheckDnslogResult.createCollaborator(montoyaApi);
             collabDomainField.setText(collaboratorDomain);
         });
         collabDomainPanel.add(generateBtn, BorderLayout.EAST);
-
-        gbc.gridx = 1;
-        panel.add(collabDomainPanel, gbc);
+        leftPanel.add(collabDomainPanel, leftGbc);
 
         // 3. CEYE APIKey（仅CEYE显示）
-        gbc.gridx = 0;
-        gbc.gridy = 2;
+        leftGbc.gridy++;
         JLabel apiKeyLabel = new JLabel("CEYE APIKey:");
-        panel.add(apiKeyLabel, gbc);
-        gbc.gridx = 1;
-        JTextField ceyeApiKeyField = new JTextField(30);
-        ceyeApiKeyField.setText(DnslogConfig.getInstance().ceyeApiKey);
-        panel.add(ceyeApiKeyField, gbc);
+        leftPanel.add(apiKeyLabel, leftGbc);
+        leftGbc.gridy++;
+        JTextField ceyeApiKeyField = new JTextField(20);
+        ceyeApiKeyField.setText(dnslogConfig.ceyeApiKey);
+        leftPanel.add(ceyeApiKeyField, leftGbc);
 
         // 4. CEYE APIDomain（仅CEYE显示）
-        gbc.gridx = 0;
-        gbc.gridy = 3;
+        leftGbc.gridy++;
         JLabel apiDomainLabel = new JLabel("CEYE APIDomain:");
-        panel.add(apiDomainLabel, gbc);
-        gbc.gridx = 1;
-        JTextField ceyeApiDomainField = new JTextField(30);
-        ceyeApiDomainField.setText(DnslogConfig.getInstance().ceyeApiDomain);
-        panel.add(ceyeApiDomainField, gbc);
+        leftPanel.add(apiDomainLabel, leftGbc);
+        leftGbc.gridy++;
+        JTextField ceyeApiDomainField = new JTextField(20);
+        ceyeApiDomainField.setText(dnslogConfig.ceyeApiDomain);
+        leftPanel.add(ceyeApiDomainField, leftGbc);
 
-        // 5. 目标域名（始终显示）
-        gbc.gridx = 0;
-        gbc.gridy = 4;
-        panel.add(new JLabel("目标域名:"), gbc);
-        gbc.gridx = 1;
-        JTextField targetDomainField = new JTextField(30);
-        targetDomainField.setText(DnslogConfig.getInstance().targetDomain);
-        panel.add(targetDomainField, gbc);
+        // 5. 目标域名
+        leftGbc.gridy++;
+        leftPanel.add(new JLabel("目标域名:"), leftGbc);
+        leftGbc.gridy++;
+        JTextField targetDomainField = new JTextField(20);
+        targetDomainField.setText(dnslogConfig.targetDomain);
+        leftPanel.add(targetDomainField, leftGbc);
 
-        // 6. 保存配置按钮（跨列居中）
-        gbc.gridx = 0;
-        gbc.gridy = 5;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        JButton saveBtn = new JButton("保存配置");
-        saveBtn.addActionListener(e -> {
-            // 获取用户输入的配置值
-            String selectedPlatform = (String) platformSelector.getSelectedItem();
-            String collabDomain = collabDomainField.getText().trim();
-            String ceyeKey = ceyeApiKeyField.getText().trim();
-            String ceyeDomain = ceyeApiDomainField.getText().trim();
-            String targetDomain = targetDomainField.getText().trim();
-
-            // 配置验证（根据平台类型检查必填项）
-            StringBuilder errorMsg = new StringBuilder();
-            if ("ceye".equals(selectedPlatform)) {
-                if (ceyeKey.isEmpty()) {
-                    errorMsg.append("CEYE APIKey不能为空\n");
-                }
-                if (ceyeDomain.isEmpty()) {
-                    errorMsg.append("CEYE APIDomain不能为空\n");
-                }
-            }
-            // 目标域名可选验证（根据你的业务需求决定是否必填）
-            if (targetDomain.isEmpty()) {
-                errorMsg.append("目标域名建议填写（可留空）\n");
-            }
-
-            // 验证失败时提示错误
-            if (errorMsg.length() > 0) {
-                JOptionPane.showMessageDialog(
-                        panel,
-                        "配置不完整：\n" + errorMsg.toString(),
-                        "保存失败",
-                        JOptionPane.ERROR_MESSAGE
-                );
-                return;
-            }
-
-            // 验证通过，保存配置到单例
-            DnslogConfig config = DnslogConfig.getInstance();
-            config.platform = selectedPlatform;
-            config.collaboratorDomain = collabDomain;
-            config.ceyeApiKey = ceyeKey;
-            config.ceyeApiDomain = ceyeDomain;
-            config.targetDomain = targetDomain;
-            if (selectedPlatform.equals("ceye")) {
-                config.donlogType = Config.DnslogType.CEYE;
-            }else{
-                config.donlogType = Config.DnslogType.COLLABORATOR;
-            }
-
-            // 持久化到本地文件
-            try {
-                config.save(); // 调用DnslogConfig中的save方法写入文件
-                JOptionPane.showMessageDialog(
-                        panel,
-                        "配置保存成功！\n" +
-                                "平台：" + selectedPlatform + "\n" +
-                                (selectedPlatform.equals("ceye") ?
-                                        "CEYE域名：" + ceyeDomain :
-                                        "Collaborator域名：" + (collabDomain.isEmpty() ? "自动生成" : collabDomain)),
-                        "保存成功",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-                montoyaApi.logging().logToOutput("配置已保存到本地文件");
-            } catch (Exception ex) {
-                // 捕获文件写入异常（如权限不足）
-                JOptionPane.showMessageDialog(
-                        panel,
-                        "保存配置失败：\n" + ex.getMessage(),
-                        "保存错误",
-                        JOptionPane.ERROR_MESSAGE
-                );
-                montoyaApi.logging().logToError("配置保存失败：" + ex.getMessage());
-            }
-        });
-        panel.add(saveBtn, gbc);
-
-        // 平台切换时控制CEYE项显隐
+        // 平台切换时控制CEYE项显隐（复用原逻辑）
         platformSelector.addItemListener(e -> {
             boolean isCeye = "ceye".equals(e.getItem());
             apiKeyLabel.setVisible(isCeye);
@@ -287,20 +213,223 @@ public class MySuiteTab {
             apiDomainLabel.setVisible(isCeye);
             ceyeApiDomainField.setVisible(isCeye);
             collabDomainField.setEnabled(!isCeye);
-            generateBtn.setEnabled(!isCeye); // 按钮随输入框禁用状态同步
+            generateBtn.setEnabled(!isCeye);
         });
-
-        // 初始状态设置
-        boolean isCeyeDefault = "ceye".equals(DnslogConfig.getInstance().platform);
+        boolean isCeyeDefault = "ceye".equals(dnslogConfig.platform);
         apiKeyLabel.setVisible(isCeyeDefault);
         ceyeApiKeyField.setVisible(isCeyeDefault);
         apiDomainLabel.setVisible(isCeyeDefault);
         ceyeApiDomainField.setVisible(isCeyeDefault);
         collabDomainField.setEnabled(!isCeyeDefault);
-        generateBtn.setEnabled(!isCeyeDefault); // 初始按钮状态
+        generateBtn.setEnabled(!isCeyeDefault);
 
-        panel.setBorder(BorderFactory.createTitledBorder("DNSlog配置"));
-        return panel;
+
+        // ==============================================
+        // 中间区域：扫描选项勾选框（预留扩展）
+        // ==============================================
+        JPanel middlePanel = new JPanel(new GridBagLayout());
+        middlePanel.setBorder(BorderFactory.createTitledBorder("扫描选项"));
+        GridBagConstraints midGbc = new GridBagConstraints();
+        midGbc.insets = new Insets(5, 5, 5, 5);
+        midGbc.anchor = GridBagConstraints.WEST;
+        midGbc.gridx = 0;
+        midGbc.gridy = 0;
+        midGbc.gridwidth = 1;
+
+        // 1. FastJson扫描勾选框
+        JCheckBox fastJsonCheck = new JCheckBox("FastJson扫描");
+        fastJsonCheck.setSelected(dnslogConfig.fastJsonScanEnabled);
+        middlePanel.add(fastJsonCheck, midGbc);
+
+        // 2. Log4J扫描勾选框
+        midGbc.gridy++;
+        JCheckBox log4jCheck = new JCheckBox("Log4J扫描");
+        log4jCheck.setSelected(dnslogConfig.log4jScanEnabled);
+        middlePanel.add(log4jCheck, midGbc);
+
+        // 预留扩展位置（示例：未来添加其他扫描选项）
+//        midGbc.gridy++;
+//        JCheckBox reserveCheck1 = new JCheckBox("预留选项1");
+//        middlePanel.add(reserveCheck1, midGbc);
+//
+//        midGbc.gridy++;
+//        JCheckBox reserveCheck2 = new JCheckBox("预留选项2");
+//        middlePanel.add(reserveCheck2, midGbc);
+
+        // 填充空白区域（让勾选框靠上显示）
+        midGbc.gridy++;
+        midGbc.weighty = 1.0; // 占满剩余垂直空间
+        middlePanel.add(new JPanel(), midGbc);
+
+
+        // ==============================================
+        // 右侧区域：日志存储设置
+        // ==============================================
+        JPanel rightPanel = new JPanel(new GridBagLayout());
+        rightPanel.setBorder(BorderFactory.createTitledBorder("日志设置"));
+        GridBagConstraints rightGbc = new GridBagConstraints();
+        rightGbc.insets = new Insets(5, 5, 5, 5);
+        rightGbc.anchor = GridBagConstraints.WEST;
+        rightGbc.fill = GridBagConstraints.HORIZONTAL;
+        rightGbc.gridx = 0;
+        rightGbc.gridwidth = 2;
+
+        // 1. 是否启用日志保存（单选框）
+        rightGbc.gridy = 0;
+        JRadioButton enableLogRadio = new JRadioButton("启用日志保存");
+        JRadioButton disableLogRadio = new JRadioButton("禁用日志保存");
+        ButtonGroup logGroup = new ButtonGroup();
+        logGroup.add(enableLogRadio);
+        logGroup.add(disableLogRadio);
+        enableLogRadio.setSelected(DnslogConfig.getInstance().logEnabled);
+
+        // 用面板包裹单选框，横向排列
+        JPanel logRadioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        logRadioPanel.add(enableLogRadio);
+        logRadioPanel.add(disableLogRadio);
+        rightPanel.add(logRadioPanel, rightGbc);
+
+        // 2. 日志存储位置输入框（仅在启用时显示）
+        rightGbc.gridy++;
+        JLabel logPathLabel = new JLabel("日志存储位置:");
+        rightPanel.add(logPathLabel, rightGbc);
+
+        rightGbc.gridy++;
+        JTextField logPathField = new JTextField(20);
+        // 加载配置
+        String defaultLogPath = DnslogConfig.getInstance().logPath;
+        logPathField.setText(defaultLogPath);
+        rightPanel.add(logPathField, rightGbc);
+
+        // 3. 浏览按钮（可选，打开文件选择器）
+        rightGbc.gridy++;
+        JButton browseBtn = new JButton("浏览...");
+        browseBtn.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            fileChooser.setCurrentDirectory(new File(logPathField.getText()));
+            int result = fileChooser.showOpenDialog(rightPanel);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                logPathField.setText(fileChooser.getSelectedFile().getAbsolutePath());
+            }
+        });
+        // 让按钮靠右显示
+        JPanel browsePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        browsePanel.add(browseBtn);
+        rightPanel.add(browsePanel, rightGbc);
+
+        // 4. 绑定启用状态与输入框可见性
+        enableLogRadio.addActionListener(e -> {
+            boolean enabled = enableLogRadio.isSelected();
+            logPathLabel.setVisible(enabled);
+            logPathField.setVisible(enabled);
+            browseBtn.setVisible(enabled);
+            browsePanel.setVisible(enabled);
+        });
+        disableLogRadio.addActionListener(e -> {
+            boolean enabled = enableLogRadio.isSelected();
+            logPathLabel.setVisible(enabled);
+            logPathField.setVisible(enabled);
+            browseBtn.setVisible(enabled);
+            browsePanel.setVisible(enabled);
+        });
+
+        // 填充空白区域
+        rightGbc.gridy++;
+        rightGbc.weighty = 1.0;
+        rightPanel.add(new JPanel(), rightGbc);
+
+
+        // ==============================================
+        // 底部：保存配置按钮（跨三栏居中）
+        // ==============================================
+        JButton saveBtn = new JButton("保存配置");
+        saveBtn.addActionListener(e -> {
+            // 1. 保存DNSlog配置（复用原逻辑）
+            String selectedPlatform = (String) platformSelector.getSelectedItem();
+            String collabDomain = collabDomainField.getText().trim();
+            String ceyeKey = ceyeApiKeyField.getText().trim();
+            String ceyeDomain = ceyeApiDomainField.getText().trim();
+            String targetDomain = targetDomainField.getText().trim();
+
+            // 2. 保存扫描选项
+            boolean fastJsonEnabled = fastJsonCheck.isSelected();
+            boolean log4jEnabled = log4jCheck.isSelected();
+
+            // 3. 保存日志设置
+            boolean logEnabled = enableLogRadio.isSelected();
+            String logPath = logEnabled ? logPathField.getText().trim() : "";
+
+            // 验证配置
+            StringBuilder errorMsg = new StringBuilder();
+            if ("ceye".equals(selectedPlatform)) {
+                if (ceyeKey.isEmpty()) errorMsg.append("CEYE APIKey不能为空\n");
+                if (ceyeDomain.isEmpty()) errorMsg.append("CEYE APIDomain不能为空\n");
+            }
+            if (logEnabled && logPath.isEmpty()) {
+                errorMsg.append("日志存储位置不能为空\n");
+            }
+
+            if (errorMsg.length() > 0) {
+                JOptionPane.showMessageDialog(rightPanel, "配置不完整：\n" + errorMsg, "保存失败", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 保存到配置单例（需扩展DnslogConfig添加新字段）
+            DnslogConfig config = DnslogConfig.getInstance();
+            config.platform = selectedPlatform;
+            config.collaboratorDomain = collabDomain;
+            config.ceyeApiKey = ceyeKey;
+            config.ceyeApiDomain = ceyeDomain;
+            config.targetDomain = targetDomain;
+            config.donlogType = "ceye".equals(selectedPlatform) ? Config.DnslogType.CEYE : Config.DnslogType.COLLABORATOR;
+            // 新增字段：扫描选项
+            config.fastJsonScanEnabled = fastJsonEnabled;
+            config.log4jScanEnabled = log4jEnabled;
+            // 新增字段：日志设置
+            config.logEnabled = logEnabled;
+            config.logPath = logPath;
+
+            // 持久化保存
+            try {
+                config.save();
+                JOptionPane.showMessageDialog(rightPanel, "配置保存成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
+                montoyaApi.logging().logToOutput("配置已保存");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(rightPanel, "保存失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+
+        // ==============================================
+        // 组装三栏布局到主配置面板
+        // ==============================================
+        // 左侧面板：占1/3宽度
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0; // 宽度权重
+        mainConfigPanel.add(leftPanel, gbc);
+
+        // 中间面板：占1/3宽度
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        mainConfigPanel.add(middlePanel, gbc);
+
+        // 右侧面板：占1/3宽度
+        gbc.gridx = 2;
+        gbc.weightx = 1.0;
+        mainConfigPanel.add(rightPanel, gbc);
+
+        // 底部保存按钮：跨三栏
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 3;
+        gbc.weightx = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
+        mainConfigPanel.add(saveBtn, gbc);
+
+        return mainConfigPanel;
     }
 
     // ==============================================

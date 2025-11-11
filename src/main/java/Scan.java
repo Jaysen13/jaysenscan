@@ -28,10 +28,12 @@ public class Scan {
     private final MontoyaApi montoyaApi;
     private MySuiteTab mySuiteTab;
     private PluginTaskExecutor executor;
+    Boolean logEnable;
     public Scan(MontoyaApi montoyaApi,MySuiteTab mySuiteTab,PluginTaskExecutor executor) {
         this.montoyaApi = montoyaApi;
         this.mySuiteTab = mySuiteTab;
         this.executor = executor;
+        this.logEnable = DnslogConfig.getInstance().logEnabled;
     }
 
     /**
@@ -72,8 +74,10 @@ public class Scan {
                         modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan","true");
                         // 发送修改后的请求
                         HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
-                        // 加入已发送请求的存储日志中
-                        saveLogFile.appendHttpData(attackReqResp);
+                        if (logEnable) {
+                            // 加入已发送请求的存储日志中
+                            saveLogFile.appendHttpData(attackReqResp);
+                        }
                         // 不立即检查DNSLOG，而是添加到批量缓存
                         CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
 
@@ -127,8 +131,10 @@ public class Scan {
                         // 发送请求
                         HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
 //                        Extension.attackReqResps.add(attackReqResp);
-                        SaveLogFile saveLogFile = new SaveLogFile();
-                        saveLogFile.appendHttpData(attackReqResp);
+                        if (logEnable) {
+                            SaveLogFile saveLogFile = new SaveLogFile();
+                            saveLogFile.appendHttpData(attackReqResp);
+                        }
                         // 不立即检查DNSLOG，而是添加到批量缓存
                         CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
                     }
@@ -223,9 +229,11 @@ public class Scan {
 
                 // 发送请求
                 HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
-                // 保存日志
-                SaveLogFile saveLogFile = new SaveLogFile();
-                saveLogFile.appendHttpData(attackReqResp);
+                if (logEnable) {
+                    // 保存日志
+                    SaveLogFile saveLogFile = new SaveLogFile();
+                    saveLogFile.appendHttpData(attackReqResp);
+                }
                 // 暂不校验dnslog  添加缓存
                 CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
 
