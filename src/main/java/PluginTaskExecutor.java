@@ -34,31 +34,8 @@ public class PluginTaskExecutor {
             }
         };
 
-        // 拒绝策略（保持不变）
-        RejectedExecutionHandler rejectionHandler = (r, executor) -> {
-            if (executor.isShutdown()) {
-                montoyaApi.logging().logToError("线程池已关闭，任务被拒绝：" + r);
-                return;
-            }
-
-            int retryCount = 0;
-            final int MAX_RETRY = 3;
-            final long RETRY_DELAY_MS = 500;
-            while (retryCount < MAX_RETRY) {
-                try {
-                    if (executor.getQueue().offer(r, 1, TimeUnit.SECONDS)) {
-//                        montoyaApi.logging().logToOutput("任务重试提交成功（第" + (retryCount + 1) + "次）");
-                        return;
-                    }
-                    retryCount++;
-                    Thread.sleep(RETRY_DELAY_MS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-            montoyaApi.logging().logToError("任务多次提交失败：" + r);
-        };
+        // 等待策略
+        RejectedExecutionHandler rejectionHandler = new ThreadPoolExecutor.CallerRunsPolicy();
 
         // 初始化线程池（保持不变）
         this.executor = new ThreadPoolExecutor(

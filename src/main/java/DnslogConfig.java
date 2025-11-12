@@ -1,8 +1,6 @@
 import burp.api.montoya.collaborator.CollaboratorClient;
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,9 +31,12 @@ public class DnslogConfig {
     // 扫描选项
     public boolean fastJsonScanEnabled = true; // 默认启用 FastJson 扫描
     public boolean log4jScanEnabled = true;    // 默认启用 Log4j 扫描
+    public boolean springScanEnabled = true; // 默认启用 Swagger 扫描
     // 日志设置
     public boolean logEnabled = true;          // 默认启用日志保存
     public String logPath = System.getProperty("user.home") + "/.burp/jaysenscanlog";
+    public int logRetentionDays = 7;
+
 
     // 私有构造方法（防止外部实例化）
     private DnslogConfig() {}

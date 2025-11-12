@@ -1,11 +1,12 @@
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.collaborator.CollaboratorClient;
 
 public class Extension implements BurpExtension {
-    private static final int CORE_POOL_SIZE = 28;
-    private static final int MAX_POOL_SIZE = 112;
+    private static final int CORE_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 2;
+    private static final int MAX_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 4;
     private static final int QUEUE_CAPACITY = 2000;
-    private static final long KEEP_ALIVE_TIME = 60L;
+    private static final long KEEP_ALIVE_TIME = 300L;
     private PluginTaskExecutor executor;
     @Override
     public void initialize(MontoyaApi montoyaApi) {
@@ -27,9 +28,11 @@ public class Extension implements BurpExtension {
                 MAX_POOL_SIZE,
                 KEEP_ALIVE_TIME,
                 QUEUE_CAPACITY,
-                500,
+                3000,
                 montoyaApi
         );
+        // 启动定时清理缓存
+        MyHttpHandler.scheduleCacheCleanup();
 
         // 注册标签页面
         MySuiteTab mySuiteTab = new MySuiteTab(montoyaApi);
@@ -49,5 +52,8 @@ public class Extension implements BurpExtension {
         CheckDnslogResult.getInstance().shutdown();
         // 关闭其他线程池（如扫描线程池）
         executor.shutdown();
+        // 写入最后的缓存日志
+        new SaveLogFile().cleanUp();
+
     }
 }

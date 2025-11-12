@@ -11,9 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.GZIPOutputStream;
 
@@ -25,6 +27,7 @@ import java.util.zip.GZIPOutputStream;
  * 3. GZIP压缩存储（可选）
  * 4. 自动清理过期日志（默认保留30天）
  * 5. 精简字段，去除冗余信息
+ * 6. 缓存满100条自动写入，卸载前确保缓存写入
  */
 public class SaveLogFile {
     private final String baseDir; // 日志根目录
@@ -32,13 +35,20 @@ public class SaveLogFile {
     private final long maxFileSize; // 单个文件最大大小（字节）
     private final int retainDays; // 日志保留天数
     private static final ConcurrentHashMap<String, ReentrantLock> PATH_LOCKS = new ConcurrentHashMap<>();
+    private final List<HttpRequestResponse> attackReqresps; // 存储扫描结果缓存
+    private final ScheduledExecutorService scheduler;
+    private static final int BATCH_SIZE = 100; // 缓存阈值，满100条自动写入
+    private final ReentrantLock cacheLock = new ReentrantLock(); // 缓存操作锁
 
     // 构造方法：可配置分割大小、保留天数等
     public SaveLogFile() {
         this.baseDir = DnslogConfig.getInstance().logPath + "/";
         this.prefix = "jaysenscanlog_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_";
-        this.maxFileSize = 10 * 1024 * 1024; // 10MB
-        this.retainDays = 7; // 保留7天日志
+        this.maxFileSize = 100 * 1024 * 1024; // 100MB
+        this.retainDays = DnslogConfig.getInstance().logRetentionDays;
+        this.attackReqresps = new ArrayList<>();
+        // 定时任务线程池（单线程即可，避免并发检查冲突）
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
         initDir();
         cleanExpiredLogs(); // 启动时清理过期日志
     }
@@ -48,6 +58,70 @@ public class SaveLogFile {
         File dir = new File(baseDir);
         if (!dir.exists()) {
             dir.mkdirs();
+        }
+    }
+
+    // 将恶意请求日志添加入缓存，满100条自动写入
+    public void addToBatch(HttpRequestResponse rr) {
+        cacheLock.lock();
+        try {
+            attackReqresps.add(rr);
+            // 达到阈值时触发批量写入
+            if (attackReqresps.size() >= BATCH_SIZE) {
+                // 使用后台线程写入，避免阻塞调用方
+                scheduler.submit(this::flushCache);
+            }
+        } finally {
+            cacheLock.unlock();
+        }
+    }
+
+    // 强制将缓存中的日志写入文件
+    public void flushCache() {
+        List<HttpRequestResponse> toWrite = new ArrayList<>();
+        // 取出当前缓存中的所有数据（原子操作）
+        cacheLock.lock();
+        try {
+            if (!attackReqresps.isEmpty()) {
+                toWrite.addAll(attackReqresps);
+                attackReqresps.clear(); // 清空缓存
+            }
+        } finally {
+            cacheLock.unlock();
+        }
+
+        // 批量写入文件
+        if (!toWrite.isEmpty()) {
+            try {
+                String filePath = getCurrentFilePath();
+                ReentrantLock fileLock = getLock(filePath);
+                fileLock.lock();
+                try (BufferedWriter writer = new BufferedWriter(
+                        new OutputStreamWriter(
+                                new GZIPOutputStream(
+                                        new FileOutputStream(filePath, true)), // 追加模式
+                                StandardCharsets.UTF_8))) {
+
+                    for (HttpRequestResponse rr : toWrite) {
+                        JSONObject data = processHttpData(rr);
+                        String jsonLine = JSON.toJSONString(data);
+                        writer.write(jsonLine);
+                        writer.newLine();
+                    }
+                } finally {
+                    fileLock.unlock();
+                }
+                // 写入成功后检查文件大小，必要时触发分割（由getCurrentFilePath自动处理）
+            } catch (IOException e) {
+                // 写入失败时将数据放回缓存（避免丢失）
+                cacheLock.lock();
+                try {
+                    attackReqresps.addAll(0, toWrite); // 放前面优先处理
+                } finally {
+                    cacheLock.unlock();
+                }
+                System.err.println("批量写入日志失败：" + e.getMessage());
+            }
         }
     }
 
@@ -135,27 +209,26 @@ public class SaveLogFile {
         }
     }
 
-    // 追加数据到日志文件（JSON Lines格式）
-    public void appendHttpData(HttpRequestResponse rr) throws IOException {
-        String filePath = getCurrentFilePath();
-        ReentrantLock lock = getLock(filePath);
-        lock.lock();
-        try (BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(
-                        new GZIPOutputStream(
-                                new FileOutputStream(filePath, true)), // 追加模式
-                        StandardCharsets.UTF_8))) {
-
-            // 写入单行JSON（FastJSON禁用格式化，减少体积）
-            JSONObject data = processHttpData(rr);
-            String jsonLine = JSON.toJSONString(data);
-            writer.write(jsonLine);
-            writer.newLine(); // 换行分隔
-
-        } finally {
-            lock.unlock();
-        }
-    }
+    // 追加单条数据到日志文件（保持原有接口兼容）
+//    public void appendHttpData(HttpRequestResponse rr) throws IOException {
+//        String filePath = getCurrentFilePath();
+//        ReentrantLock lock = getLock(filePath);
+//        lock.lock();
+//        try (BufferedWriter writer = new BufferedWriter(
+//                new OutputStreamWriter(
+//                        new GZIPOutputStream(
+//                                new FileOutputStream(filePath, true)), // 追加模式
+//                        StandardCharsets.UTF_8))) {
+//
+//            JSONObject data = processHttpData(rr);
+//            String jsonLine = JSON.toJSONString(data);
+//            writer.write(jsonLine);
+//            writer.newLine();
+//
+//        } finally {
+//            lock.unlock();
+//        }
+//    }
 
     // 清理过期日志（保留retainDays天内的）
     private void cleanExpiredLogs() {
@@ -182,7 +255,25 @@ public class SaveLogFile {
         }
     }
 
-    // 清理锁（可选）
+    // 清理资源（在卸载前调用）
+    public void cleanUp() {
+        // 1. 确保缓存中剩余日志全部写入
+        flushCache();
+        // 2. 关闭定时任务线程池
+        scheduler.shutdown();
+        try {
+            // 等待线程池关闭，最多等待5秒
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+        }
+        // 3. 清理文件锁
+        cleanLock();
+    }
+
+    // 清理锁
     public void cleanLock() {
         try {
             String normalizedPath = new File(baseDir).getCanonicalPath();
@@ -192,171 +283,3 @@ public class SaveLogFile {
         }
     }
 }
-
-//import burp.api.montoya.http.message.HttpHeader;
-//import burp.api.montoya.http.message.HttpRequestResponse;
-//import burp.api.montoya.http.message.requests.HttpRequest;
-//import burp.api.montoya.http.message.responses.HttpResponse;
-//import com.alibaba.fastjson2.*;
-//
-//import java.io.File;
-//import java.io.IOException;
-//import java.nio.charset.StandardCharsets;
-//import java.nio.file.Files;
-//import java.nio.file.Paths;
-//import java.time.LocalDate;
-//import java.time.format.DateTimeFormatter;
-//import java.util.ArrayList;
-//import java.util.List;
-//import java.util.Objects;
-//import java.util.concurrent.ConcurrentHashMap;
-//import java.util.concurrent.locks.ReentrantLock;
-//
-///**
-// * HTTP请求响应数据JSON存储工具类
-// * 特性：
-// * 1. 处理HttpRequestResponse数据并转换为指定格式
-// * 2. 以List<JSONArray>格式追加保存（保持JSON格式完整）
-// * 3. 自动创建目录，美化JSON格式
-// * 4. 基于文件路径的锁机制，防止并发写入冲突
-// */
-//public class SaveLogFile {
-//    private final String filePath;
-//    // 存储文件路径与对应锁的映射（读写共用同一把锁）
-//    private static final ConcurrentHashMap<String, ReentrantLock> PATH_LOCKS = new ConcurrentHashMap<>();
-//
-//    public SaveLogFile() {
-//        LocalDate currentDate = LocalDate.now();
-//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-//        String formattedDate = currentDate.format(formatter);
-//        // 假设Config.scanLogPath是全局配置的日志根路径
-//        this.filePath = Config.scanLogPath + "jaysenscanlog" + "/jaysenscanlog" + formattedDate + ".json";
-//    }
-//
-//    /**
-//     * 获取文件路径对应的锁（同一文件共享同一把锁）
-//     */
-//    private ReentrantLock getLock() {
-//        String normalizedPath;
-//        try {
-//            // 标准化路径，处理相对路径/绝对路径差异
-//            normalizedPath = new File(filePath).getCanonicalPath();
-//        } catch (IOException e) {
-//            normalizedPath = filePath;
-//        }
-//        // 不存在则创建锁，确保线程安全
-//        return PATH_LOCKS.computeIfAbsent(normalizedPath, k -> new ReentrantLock());
-//    }
-//
-//    /**
-//     * 处理HttpRequestResponse数据，转换为JSONObject
-//     * 字段包含：reqmethod, reqUrl, reqHeaders, reqBody, respStatusCode, respHeaders, respBody, timestamp
-//     */
-//    private JSONObject processHttpData(HttpRequestResponse rr) {
-//        JSONObject data = new JSONObject();
-//        HttpRequest request = rr.request();
-//        HttpResponse response = rr.response();
-//
-//        // 构造请求头字符串（强制转义）
-//        StringBuilder reqHeadersStr = new StringBuilder();
-//        if (request.headers() != null) {
-//            for (HttpHeader header : request.headers()) {
-//                String name = Objects.toString(header.name(), "");
-//                String value = Objects.toString(header.value(), "");
-//                reqHeadersStr.append(name).append(": ").append(JSONObject.toJSONString(value)).append("; ");
-//            }
-//        }
-//
-//        // 构造响应头字符串（强制转义）
-//        StringBuilder respHeadersStr = new StringBuilder();
-//        if (response != null && response.headers() != null) {
-//            for (HttpHeader header : response.headers()) {
-//                String name = Objects.toString(header.name(), "");
-//                String value = Objects.toString(header.value(), "");
-//                respHeadersStr.append(name).append(": ").append(JSONObject.toJSONString(value)).append("; ");
-//            }
-//        }
-//
-//        // 请求体处理（转义）
-//        String reqBody = request.body().length() > 0 ? request.bodyToString() : "";
-//
-//        // 响应相关字段初始化
-//        int statusCode = 0;
-//        String respHeaders = "";
-//        String respBody = "";
-//        if (response != null) {
-//            statusCode = response.statusCode();
-//            respHeaders = respHeadersStr.toString().trim();
-//            respBody = response.body().length() > 0 ? response.bodyToString() : "";
-//        }
-//
-//        // 所有字段JSON转义存储
-//        data.put("reqmethod", request.method());
-//        data.put("reqUrl", request.url());
-//        data.put("reqHeaders", reqHeadersStr.toString().trim());
-//        data.put("reqBody", JSONObject.toJSONString(reqBody));
-//        data.put("respStatusCode", statusCode);
-//        data.put("respHeaders", respHeaders);
-//        data.put("respBody", JSONObject.toJSONString(respBody));
-//        data.put("timestamp", System.currentTimeMillis());
-//
-//        return data;
-//    }
-//
-//    /**
-//     * 将处理后的HTTP数据追加到当前实例对应的JSON文件（List<JSONArray>格式）
-//     * 每次追加会读取原有数据，添加新元素后整体写入（保持JSON格式完整）
-//     *
-//     * @param rr       待处理的HTTP请求响应数据
-//     * @throws IOException   目录创建失败或文件读写错误
-//     * @throws JSONException JSON格式错误（如文件内容损坏）
-//     */
-//    public void appendHttpData(HttpRequestResponse rr) throws IOException, JSONException {
-//        ReentrantLock lock = getLock();
-//        lock.lock(); // 加锁，确保读写原子性
-//        try {
-//            // 确保目录存在
-//            File file = new File(filePath);
-//            File parentDir = file.getParentFile();
-//            if (parentDir != null && !parentDir.exists()) {
-//                boolean dirCreated = parentDir.mkdirs();
-//                if (!dirCreated) {
-//                    throw new IOException("无法创建目录: " + parentDir.getAbsolutePath());
-//                }
-//            }
-//
-//            // 读取现有数据（若文件不存在则初始化空列表）
-//            List<JSONObject> dataList;
-//            if (file.exists() && file.length() > 0) {
-//                // 读取文件内容并解析为List<JSONObject>
-//                String jsonContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
-//                dataList = JSON.parseArray(jsonContent, JSONObject.class);
-//            } else {
-//                dataList = new ArrayList<>();
-//            }
-//
-//            // 处理新数据并追加到列表
-//            JSONObject newData = processHttpData(rr);
-//            dataList.add(newData);
-//
-//            // 美化格式写入文件（覆盖原有内容，保持JSON数组完整性）
-//            String prettyJson = JSON.toJSONString(dataList, JSONWriter.Feature.PrettyFormat);
-//            Files.writeString(Paths.get(filePath), prettyJson, StandardCharsets.UTF_8);
-//
-//        } finally {
-//            lock.unlock(); // 确保锁释放，避免死锁
-//        }
-//    }
-//
-//    /**
-//     * 清理当前实例文件路径的锁（一般无需手动调用）
-//     */
-//    public void cleanLock() {
-//        try {
-//            String normalizedPath = new File(filePath).getCanonicalPath();
-//            PATH_LOCKS.remove(normalizedPath);
-//        } catch (IOException e) {
-//            PATH_LOCKS.remove(filePath);
-//        }
-//    }
-//}

@@ -4,36 +4,27 @@ import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameter;
 import burp.api.montoya.http.message.params.HttpParameterType;
-import burp.api.montoya.http.message.params.ParsedHttpParameter;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.http.message.responses.HttpResponse;
-import burp.api.montoya.scanner.audit.AuditIssueHandler;
-import burp.api.montoya.scanner.audit.issues.AuditIssue;
-import burp.api.montoya.scanner.audit.issues.AuditIssueConfidence;
-import burp.api.montoya.scanner.audit.issues.AuditIssueSeverity;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONException;
-
-import javax.print.attribute.standard.Severity;
-import javax.security.auth.callback.Callback;
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Scan {
     private final MontoyaApi montoyaApi;
     private MySuiteTab mySuiteTab;
     private PluginTaskExecutor executor;
     Boolean logEnable;
+    private SaveLogFile saveLogFile;
+
     public Scan(MontoyaApi montoyaApi,MySuiteTab mySuiteTab,PluginTaskExecutor executor) {
         this.montoyaApi = montoyaApi;
         this.mySuiteTab = mySuiteTab;
         this.executor = executor;
         this.logEnable = DnslogConfig.getInstance().logEnabled;
+        this.saveLogFile = new SaveLogFile();
     }
 
     /**
@@ -42,7 +33,6 @@ public class Scan {
      * @param rawDatas 需要替换的json数据列表
      */
     public void fastJsonScan(HttpRequestToBeSent request, List<JsonData> rawDatas) {
-        SaveLogFile saveLogFile = new SaveLogFile();
         String topDomain1 = "fjson";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "");
             try {
@@ -76,7 +66,7 @@ public class Scan {
                         HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
                         if (logEnable) {
                             // 加入已发送请求的存储日志中
-                            saveLogFile.appendHttpData(attackReqResp);
+                            saveLogFile.addToBatch(attackReqResp);
                         }
                         // 不立即检查DNSLOG，而是添加到批量缓存
                         CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
@@ -132,8 +122,7 @@ public class Scan {
                         HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
 //                        Extension.attackReqResps.add(attackReqResp);
                         if (logEnable) {
-                            SaveLogFile saveLogFile = new SaveLogFile();
-                            saveLogFile.appendHttpData(attackReqResp);
+                            saveLogFile.addToBatch(attackReqResp);
                         }
                         // 不立即检查DNSLOG，而是添加到批量缓存
                         CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
@@ -231,8 +220,7 @@ public class Scan {
                 HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
                 if (logEnable) {
                     // 保存日志
-                    SaveLogFile saveLogFile = new SaveLogFile();
-                    saveLogFile.appendHttpData(attackReqResp);
+                    saveLogFile.addToBatch(attackReqResp);
                 }
                 // 暂不校验dnslog  添加缓存
                 CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
@@ -252,9 +240,9 @@ public class Scan {
         HttpRequest modifiedRequest = request;
         // 定义需要保留的关键头（避免替换后请求无法正常发送）
         List<String> reservedHeaders = new ArrayList<>();
-        reservedHeaders.add("Host");          // 必须保留，否则目标地址失效
+//        reservedHeaders.add("Host");          // 必须保留，否则目标地址失效
         reservedHeaders.add("Content-Length");// 必须保留，否则请求体长度不匹配
-        reservedHeaders.add("Content-Type");  // 保留，确保POST表单格式正确
+//        reservedHeaders.add("Content-Type");  // 保留，确保POST表单格式正确
         reservedHeaders.add("Connection");    // 保留，维持连接状态
 
         // 遍历所有请求头，替换非关键头的值
@@ -287,5 +275,66 @@ public class Scan {
             modifiedRequest = modifiedRequest.withUpdatedParameters(newParam);
         }
         return modifiedRequest;
+    }
+
+    /**
+     * spring未授权访问扫描（优化版）
+     */
+    public void springScan(HttpRequestToBeSent request) {
+        String originalUrl = request.url();
+
+        // 1. 先判断是否为潜在API URL，不是则直接返回
+        if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
+            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
+            return;
+        }
+
+        // 2. 提取基础路径（主域名+端口）
+        String baseUrl;
+        try {
+            baseUrl = originalUrl.substring(0, originalUrl.indexOf('/', 8));
+        } catch (Exception e) {
+            baseUrl = originalUrl;
+        }
+
+        // 4. 常见的spring路径（优化排序，优先扫描最常见的）
+        List<String> springPaths = Arrays.asList(
+                "/spring-ui.html",
+                "/spring-ui/",
+                "/v3/api-docs",
+                "/v2/api-docs",
+                "/spring-resources",
+                "/api-docs",
+                "/spring.json",
+                "/doc.html",  // 国产框架常用的Knife4j文档
+                "/spring"
+        );
+
+        // 5. 执行扫描（现有逻辑）
+        try {
+            for (String path : springPaths) {
+                String targetUrl = baseUrl + path;
+                // 添加已扫描的标记
+                request.withAddedHeader("JaySen-spring-Scan", "true");
+                HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(request);
+//                if (logEnable) {
+//                    saveLogFile.addToBatch(attackReqResp);
+//                }
+
+                if (attackReqResp.response().statusCode() == 200) {
+                    String responseBody = attackReqResp.response().bodyToString();
+                    if (responseBody.contains("spring") || responseBody.contains("OpenAPI") ||
+                            responseBody.contains("API") || responseBody.contains("接口文档")) {
+//                        mySuiteTab.addVulnerability("spring未授权访问", targetUrl, response);
+                        executor.submit(()->mySuiteTab.addRequestInfo(attackReqResp));
+                        montoyaApi.logging().logToOutput("发现spring未授权访问: " + targetUrl);
+                        // 找到一个就可以停止该基础路径的扫描
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            montoyaApi.logging().logToError("spring扫描出错: " + e.getMessage());
+        }
     }
 }
