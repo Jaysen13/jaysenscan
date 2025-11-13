@@ -38,7 +38,7 @@ public class MyMenu implements ContextMenuItemsProvider {
             for (HttpRequestResponse rr : requestResponses) {
                 if(!IsJsonRequest.isJsonRequest(rr).isEmpty()) {
                     // 将其添加到标签页
-                    this.mySuiteTab.addRequestInfo(rr);
+                    this.mySuiteTab.addRequestInfo(rr,"fJson");
                     montoyaApi.logging().logToOutput(rr.request().url() + "请求为JSON格式传输");
                 }
                 else {

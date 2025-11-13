@@ -126,7 +126,7 @@ public class CheckDnslogResult {
             List<HttpRequestResponse> relatedRequests = currentBatch.get(hitKeyword);
             for (HttpRequestResponse req : relatedRequests) {
                 // 标记漏洞（例如添加到结果面板）
-                this.mySuiteTab.addRequestInfo(req);
+                this.mySuiteTab.addRequestInfo(req,"Log4j/fJson");
                 // 记录日志
                 this.montoyaApi.logging().logToOutput("发现漏洞：" + req.request().url() + "（关键词：" + hitKeyword + "）");
             }

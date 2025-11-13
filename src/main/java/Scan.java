@@ -240,7 +240,7 @@ public class Scan {
         HttpRequest modifiedRequest = request;
         // 定义需要保留的关键头（避免替换后请求无法正常发送）
         List<String> reservedHeaders = new ArrayList<>();
-//        reservedHeaders.add("Host");          // 必须保留，否则目标地址失效
+        reservedHeaders.add("Host");          // 必须保留，否则目标地址失效
         reservedHeaders.add("Content-Length");// 必须保留，否则请求体长度不匹配
 //        reservedHeaders.add("Content-Type");  // 保留，确保POST表单格式正确
         reservedHeaders.add("Connection");    // 保留，维持连接状态
@@ -297,26 +297,20 @@ public class Scan {
             baseUrl = originalUrl;
         }
 
-        // 4. 常见的spring路径（优化排序，优先扫描最常见的）
-        List<String> springPaths = Arrays.asList(
-                "/spring-ui.html",
-                "/spring-ui/",
-                "/v3/api-docs",
-                "/v2/api-docs",
-                "/spring-resources",
-                "/api-docs",
-                "/spring.json",
-                "/doc.html",  // 国产框架常用的Knife4j文档
-                "/spring"
-        );
+        // 4. 常见的spring路径（优化排序，扫描最常见的）
+        List<String> springPaths = DnslogConfig.getInstance().getSpringPaths();
 
         // 5. 执行扫描（现有逻辑）
         try {
             for (String path : springPaths) {
-                String targetUrl = baseUrl + path;
+//                String targetUrl = baseUrl + path;
                 // 添加已扫描的标记
                 request.withAddedHeader("JaySen-spring-Scan", "true");
-                HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(request);
+                HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(request.withPath(path));
+                montoyaApi.logging().logToOutput("springscan正在扫描: " + attackReqResp.request().url());
+                if (attackReqResp.response() == null) {
+                    continue;
+                }
 //                if (logEnable) {
 //                    saveLogFile.addToBatch(attackReqResp);
 //                }
@@ -326,8 +320,8 @@ public class Scan {
                     if (responseBody.contains("spring") || responseBody.contains("OpenAPI") ||
                             responseBody.contains("API") || responseBody.contains("接口文档")) {
 //                        mySuiteTab.addVulnerability("spring未授权访问", targetUrl, response);
-                        executor.submit(()->mySuiteTab.addRequestInfo(attackReqResp));
-                        montoyaApi.logging().logToOutput("发现spring未授权访问: " + targetUrl);
+                        executor.submit(()->mySuiteTab.addRequestInfo(attackReqResp,"Spring"));
+                        montoyaApi.logging().logToOutput("发现spring未授权访问: " + attackReqResp.request().url());
                         // 找到一个就可以停止该基础路径的扫描
                         break;
                     }

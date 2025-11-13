@@ -7,17 +7,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.IntStream;
 
 public class Main {
     public static void main(String[] args) {
-        String keyword = "11fjson";
-        JSONArray result = checkCeyeDnslog("json");
-        System.out.println(JSONArray.toJSONString(result));
-        boolean exists = IntStream.range(0, result.size()).anyMatch(i -> result.getString(i).contains(keyword));
-        if (exists) {
-            System.out.println(String.format("%s 存在于DnsLog记录中",keyword));
-        }
+        String filterExtensions = "js,css,png,jpg,jpeg,pdf,gif,ico,svg,doc,docx,xls,xlsx";
+        List<String> STATIC_EXTENSIONS= Arrays.asList(filterExtensions.split("\\s*,\\s*"));
+        System.out.println("Static extensions: " + STATIC_EXTENSIONS);
     }
     private static JSONArray checkCeyeDnslog(String keyWord) {
 

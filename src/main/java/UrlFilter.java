@@ -4,19 +4,11 @@ import java.util.regex.Pattern;
 
 public class UrlFilter {
     // 静态资源后缀（排除）
-    private static final List<String> STATIC_EXTENSIONS = Arrays.asList(
-            "js", "css", "png", "jpg", "jpeg", "gif", "ico", "svg", "pdf", "doc", "docx", "xls", "xlsx"
-    );
-
-    // API路径关键词（包含则优先扫描）
-    private static final List<String> API_KEYWORDS = Arrays.asList(
-            "api", "rest", "service", "webapi", "backend", "server", "v1", "v2", "v3"
-    );
-
+    private static final List<String> STATIC_EXTENSIONS= Arrays.asList(DnslogConfig.getInstance().filterExtensions.split("\\s*,\\s*"));
+    // API路径关键词(触发spring扫描)
+    private static final List<String> API_KEYWORDS = Arrays.asList(DnslogConfig.getInstance().springScanKeywords.split("\\s*,\\s*"));
     // 排除的路径关键词
-    private static final List<String> EXCLUDE_KEYWORDS = Arrays.asList(
-            "static", "assets", "images", "fonts", "download", "upload"
-    );
+    private static final List<String> EXCLUDE_KEYWORDS = Arrays.asList(DnslogConfig.getInstance().filterExtensions.split("\\s*,\\s*"));
 
     // 检查是否为潜在的API服务URL（值得扫描Swagger）
     public static boolean isPotentialApiUrl(String url) {

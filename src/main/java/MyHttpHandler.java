@@ -34,7 +34,7 @@ public class MyHttpHandler implements HttpHandler {
         String host = httpRequestToBeSent.headerValue("Host");
         String fjson_flag = httpRequestToBeSent.headerValue("JaySen-FastJson-Scan");
         String log4j_flag = httpRequestToBeSent.headerValue("JaySen-Log4j-Scan");
-        String swager_flag = httpRequestToBeSent.headerValue("JaySen-Swagger-Scan");
+        String spring_flag = httpRequestToBeSent.headerValue("JaySen-Spring-Scan");
         Boolean fjsonEnable = DnslogConfig.getInstance().fastJsonScanEnabled;
         Boolean log4jEnable = DnslogConfig.getInstance().log4jScanEnabled;
         Boolean swgerEnable = DnslogConfig.getInstance().springScanEnabled;
@@ -46,7 +46,7 @@ public class MyHttpHandler implements HttpHandler {
             log4j_flag = "true";
         }
         if (!swgerEnable){
-            swager_flag = "true";
+            spring_flag = "true";
         }
         // 未扫描的赋值flag
         if (fjson_flag == null) {
@@ -55,8 +55,8 @@ public class MyHttpHandler implements HttpHandler {
         if (log4j_flag == null) {
             log4j_flag = "false";
         }
-        if (swager_flag == null) {
-            swager_flag = "false";
+        if (spring_flag == null) {
+            spring_flag = "false";
         }
 
         // 过滤掉静态资源路径和指定路径
@@ -91,10 +91,12 @@ public class MyHttpHandler implements HttpHandler {
                 executor.submit(() -> scan.log4jScan(httpRequestToBeSent));
             }
             // 扫描swagger接口
-            if (swager_flag.equals("false")) {
+            if (spring_flag.equals("false")) {
                 executor.submit(() -> scan.springScan(httpRequestToBeSent));
             }
         } else {
+//            monApi.logging().logToOutput("HOST: "+host);
+//            monApi.logging().logToOutput("TARGETDOMAIN: "+targetDomain);
             if (host.contains(targetDomain)) {
                 // 扫描fastjson
                 if (fjson_flag.equals("false")) {
@@ -112,7 +114,7 @@ public class MyHttpHandler implements HttpHandler {
                     executor.submit(() -> scan.log4jScan(httpRequestToBeSent));
                 }
                 // 扫描spring接口
-                if (swager_flag.equals("false")) {
+                if (spring_flag.equals("false")) {
                     executor.submit(() -> scan.springScan(httpRequestToBeSent));
                 }
             }
