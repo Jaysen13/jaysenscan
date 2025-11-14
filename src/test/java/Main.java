@@ -13,9 +13,16 @@ import java.util.stream.IntStream;
 
 public class Main {
     public static void main(String[] args) {
-        String filterExtensions = "js,css,png,jpg,jpeg,pdf,gif,ico,svg,doc,docx,xls,xlsx";
-        List<String> STATIC_EXTENSIONS= Arrays.asList(filterExtensions.split("\\s*,\\s*"));
-        System.out.println("Static extensions: " + STATIC_EXTENSIONS);
+        String url = "https://baidu.com/mkt/1";
+        List<String> keywords;
+        keywords = Arrays.asList("mkt","api");
+        for (String keyword : keywords) {
+        if (keyword.contains(url)) {
+            System.out.println("url包含关键词"+keyword);
+        }else{
+            System.out.println("url不包含关键词"+keyword);
+        }
+        }
     }
     private static JSONArray checkCeyeDnslog(String keyWord) {
 

@@ -288,14 +288,14 @@ public class Scan {
             montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
             return;
         }
-
-        // 2. 提取基础路径（主域名+端口）
-        String baseUrl;
-        try {
-            baseUrl = originalUrl.substring(0, originalUrl.indexOf('/', 8));
-        } catch (Exception e) {
-            baseUrl = originalUrl;
-        }
+//
+//        // 2. 提取基础路径（主域名+端口）
+//        String baseUrl;
+//        try {
+//            baseUrl = originalUrl.substring(0, originalUrl.indexOf('/', 8));
+//        } catch (Exception e) {
+//            baseUrl = originalUrl;
+//        }
 
         // 4. 常见的spring路径（优化排序，扫描最常见的）
         List<String> springPaths = DnslogConfig.getInstance().getSpringPaths();

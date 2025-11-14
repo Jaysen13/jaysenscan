@@ -14,7 +14,7 @@ public class UrlFilter {
     public static boolean isPotentialApiUrl(String url) {
         try {
             String lowerUrl = url.toLowerCase();
-            // 3. 优先包含API关键词的URL
+            // 优先包含API关键词的URL
             for (String keyword : API_KEYWORDS) {
                 if (lowerUrl.contains(keyword)) {
                     return true;
