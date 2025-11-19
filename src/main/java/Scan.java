@@ -34,7 +34,7 @@ public class Scan {
      */
     public void fastJsonScan(HttpRequestToBeSent request, List<JsonData> rawDatas) {
         String topDomain1 = "fjson";
-        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
             try {
                 String timestamp = String.valueOf(System.currentTimeMillis());
                 Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
@@ -82,7 +82,7 @@ public class Scan {
     // 参数类型改为List接口，提高灵活性
     public void fastJsonScan(List<HttpRequest> requests, List<List<JsonData>> rawDatass) {
         String topDomain1 = "fjson";
-        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
             // 边界检查：确保请求列表和JSON数据列表的长度一致
             if (requests.size() != rawDatass.size()) {
@@ -183,7 +183,7 @@ public class Scan {
      * */
     public void log4jScan(HttpRequestToBeSent request) {
         String topDomain1 = "log4j";
-        String topDomain2 = UUID.randomUUID().toString().replace("-", "");
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
             String timestamp = String.valueOf(System.currentTimeMillis());
             // 初始化配置
@@ -282,53 +282,53 @@ public class Scan {
      */
     public void springScan(HttpRequestToBeSent request) {
         String originalUrl = request.url();
-
+        String originalPath = request.path();
         // 1. 先判断是否为潜在API URL，不是则直接返回
         if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
             montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
             return;
         }
-//
-//        // 2. 提取基础路径（主域名+端口）
-//        String baseUrl;
-//        try {
-//            baseUrl = originalUrl.substring(0, originalUrl.indexOf('/', 8));
-//        } catch (Exception e) {
-//            baseUrl = originalUrl;
-//        }
 
-        // 4. 常见的spring路径（优化排序，扫描最常见的）
-        List<String> springPaths = DnslogConfig.getInstance().getSpringPaths();
+        // 2. 常见的Spring扫描Payload（可在DnslogConfig中配置）
+        List<String> springPayloads = DnslogConfig.getInstance().getSpringPaths();
 
-        // 5. 执行扫描（现有逻辑）
-        try {
-            for (String path : springPaths) {
-//                String targetUrl = baseUrl + path;
-                // 添加已扫描的标记
-                request.withAddedHeader("JaySen-spring-Scan", "true");
-                HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(request.withPath(path));
-                montoyaApi.logging().logToOutput("springscan正在扫描: " + attackReqResp.request().url());
-                if (attackReqResp.response() == null) {
-                    continue;
-                }
-//                if (logEnable) {
-//                    saveLogFile.addToBatch(attackReqResp);
-//                }
+        // 3. 拆分原始路径为片段，从子路径到根目录逐层扫描
+        String[] pathSegments = originalPath.split("/");
+        StringBuilder currentPath = new StringBuilder();
 
-                if (attackReqResp.response().statusCode() == 200) {
-                    String responseBody = attackReqResp.response().bodyToString();
-                    if (responseBody.contains("spring") || responseBody.contains("OpenAPI") ||
-                            responseBody.contains("API") || responseBody.contains("接口文档")) {
-//                        mySuiteTab.addVulnerability("spring未授权访问", targetUrl, response);
-                        executor.submit(()->mySuiteTab.addRequestInfo(attackReqResp,"Spring"));
-                        montoyaApi.logging().logToOutput("发现spring未授权访问: " + attackReqResp.request().url());
-                        // 找到一个就可以停止该基础路径的扫描
-                        break;
+        for (int i = 0; i < pathSegments.length; i++) {
+            if (i > 0) {
+                currentPath.append("/");
+            }
+            currentPath.append(pathSegments[i]);
+
+            // 对当前层级的路径，拼接所有Payload进行扫描
+            for (String payload : springPayloads) {
+                String scanPath = currentPath + "/" + payload;
+                try {
+                    // 添加扫描标记头，避免重复扫描
+                    HttpRequest scannedRequest = request
+                            .withAddedHeader("JaySen-spring-Scan", "true")
+                            .withPath(scanPath);
+
+                    HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(scannedRequest);
+                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
+
+                    if (attackReqResp.response() == null) {
+                        continue;
                     }
+
+                    // 命中条件：状态码200且响应体包含特征
+                    int respCode = attackReqResp.response().statusCode();
+                    if (respCode == 200 ||respCode == 302 || respCode == 301) {
+                        executor.submit(() -> mySuiteTab.addRequestInfo(attackReqResp, "Spring未授权访问"));
+                        montoyaApi.logging().logToOutput("发现Spring未授权访问: " + attackReqResp.request().url());
+
+                    }
+                } catch (Exception e) {
+                    montoyaApi.logging().logToError("Spring扫描出错（路径：" + scanPath + "）: " + e.getMessage());
                 }
             }
-        } catch (Exception e) {
-            montoyaApi.logging().logToError("spring扫描出错: " + e.getMessage());
         }
     }
 }

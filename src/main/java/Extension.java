@@ -1,6 +1,5 @@
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.collaborator.CollaboratorClient;
 
 public class Extension implements BurpExtension {
     private static final int CORE_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 2;
@@ -32,7 +31,7 @@ public class Extension implements BurpExtension {
                 montoyaApi
         );
         // 启动定时清理缓存
-        MyHttpHandler.scheduleCacheCleanup();
+        MyHttpHandler.scheduleMarkCleanup();
 
         // 注册标签页面
         MySuiteTab mySuiteTab = new MySuiteTab(montoyaApi);
@@ -41,6 +40,8 @@ public class Extension implements BurpExtension {
         montoyaApi.userInterface().registerContextMenuItemsProvider(new MyMenu(montoyaApi, mySuiteTab, executor));
         // 注册HTTP监听器
         montoyaApi.http().registerHttpHandler(new MyHttpHandler(montoyaApi, mySuiteTab, executor));
+        // 注册PROXY监听器
+        montoyaApi.proxy().registerRequestHandler(new MyProxyRequestHandler(montoyaApi));
         // 初始化 CheckDnslogResult
         CheckDnslogResult.initialize(montoyaApi, mySuiteTab);
         // 卸载关闭线程

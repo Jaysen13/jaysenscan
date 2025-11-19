@@ -115,10 +115,10 @@ public class PluginTaskExecutor {
             long completedTasks = executor.getCompletedTaskCount();
             double queueUsage = (double) queueSize / maxQueueSize * 100;
 
-            montoyaApi.logging().logToOutput(String.format(
-                    "线程池监控：活跃线程=%d，排队任务=%d（%.1f%%），已完成任务=%d",
-                    activeThreads, queueSize, queueUsage, completedTasks
-            ));
+//            montoyaApi.logging().logToOutput(String.format(
+//                    "线程池监控：活跃线程=%d，排队任务=%d（%.1f%%），已完成任务=%d",
+//                    activeThreads, queueSize, queueUsage, completedTasks
+//            ));
 
             if (queueUsage > 80) {
                 montoyaApi.logging().logToOutput("警告：队列即将满负荷，请调整参数");

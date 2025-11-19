@@ -1,3 +1,5 @@
+import burp.api.montoya.MontoyaApi;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -8,7 +10,7 @@ public class UrlFilter {
     // API路径关键词(触发spring扫描)
     private static final List<String> API_KEYWORDS = Arrays.asList(DnslogConfig.getInstance().springScanKeywords.split("\\s*,\\s*"));
     // 排除的路径关键词
-    private static final List<String> EXCLUDE_KEYWORDS = Arrays.asList(DnslogConfig.getInstance().filterExtensions.split("\\s*,\\s*"));
+    private static final List<String> EXCLUDE_KEYWORDS = Arrays.asList(DnslogConfig.getInstance().filterKeywords.split("\\s*,\\s*"));
 
     // 检查是否为潜在的API服务URL（值得扫描Swagger）
     public static boolean isPotentialApiUrl(String url) {
@@ -32,6 +34,7 @@ public class UrlFilter {
         String lowerUrl = url.toLowerCase();
         for (String ext : STATIC_EXTENSIONS) {
             if (lowerUrl.endsWith("." + ext)) {
+//                montoyaApi.logging().logToOutput("因为后缀包含"+ext);
                 return false;
             }
         }
@@ -39,6 +42,7 @@ public class UrlFilter {
         // 2. 过滤排除关键词
         for (String keyword : EXCLUDE_KEYWORDS) {
             if (lowerUrl.contains(keyword)) {
+//                montoyaApi.logging().logToOutput("因为url包含"+keyword);
                 return false;
             }
         }
