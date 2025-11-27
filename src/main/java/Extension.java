@@ -42,6 +42,7 @@ public class Extension implements BurpExtension {
         montoyaApi.http().registerHttpHandler(new MyHttpHandler(montoyaApi, mySuiteTab, executor));
         // 注册PROXY监听器
         montoyaApi.proxy().registerRequestHandler(new MyProxyRequestHandler(montoyaApi));
+        montoyaApi.proxy().registerResponseHandler(new MyProxyRequestHandler(montoyaApi));
         // 初始化 CheckDnslogResult
         CheckDnslogResult.initialize(montoyaApi, mySuiteTab);
         // 卸载关闭线程

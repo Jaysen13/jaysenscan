@@ -51,6 +51,8 @@ public class DnslogConfig {
     public String springScanFilePath = System.getProperty("user.home") + "/.burp/springapiscan.txt";
     // 存储读取到的Spring路径列表（供外部调用）
     private List<String> springPaths;
+    public boolean cryptoEnabled = false; // 是否启用接口加解密（默认关闭）
+    public String cryptoApiUrl = "http://127.0.0.1:5000"; // 加解密接口链接（默认值）
 
     // 私有构造方法（防止外部实例化）
     private DnslogConfig() {

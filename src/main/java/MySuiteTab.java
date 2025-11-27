@@ -126,20 +126,21 @@ public class MySuiteTab {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.NORTHWEST;
         gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
+        gbc.weighty = 0.0;//关闭垂直方向自动扩展，高度由内容决定
 
 
         // ==============================================
         // 第1列：DNSlog配置
         // ==============================================
         JPanel dnsPanel = new JPanel(new GridBagLayout());
-        dnsPanel.setBorder(BorderFactory.createTitledBorder("DNSlog配置"));
+        dnsPanel.setBorder(BorderFactory.createTitledBorder("DNSLOG配置"));
         GridBagConstraints dnsGbc = new GridBagConstraints();
         dnsGbc.insets = new Insets(5, 5, 5, 5);
         dnsGbc.anchor = GridBagConstraints.WEST;
         dnsGbc.fill = GridBagConstraints.HORIZONTAL;
         dnsGbc.gridx = 0;
-        dnsGbc.gridwidth = 2;
+        dnsGbc.gridwidth = 1; // 保持1列
+        dnsGbc.weightx = 1.0; // 让该列占满可用宽度
 
         // 1. DNSlog平台选择
         dnsGbc.gridy = 0;
@@ -201,6 +202,10 @@ public class MySuiteTab {
         JTextField targetDomainField = new JTextField(20);
         targetDomainField.setText(dnslogConfig.targetDomain);
         dnsPanel.add(targetDomainField, dnsGbc);
+        // 新增：限制DNSlog配置的垂直扩展（仅保留必要空白）
+        dnsGbc.gridy++;
+        dnsGbc.weighty = 0.0; // 不自动填充垂直空间
+        dnsPanel.add(new JPanel(), dnsGbc);
 
         // 平台切换显隐控制
         platformSelector.addItemListener(e -> {
@@ -219,6 +224,33 @@ public class MySuiteTab {
         ceyeApiDomainField.setVisible(isCeyeDefault);
         collabDomainField.setEnabled(!isCeyeDefault);
         generateBtn.setEnabled(!isCeyeDefault);
+
+        // ==============================================
+        // 加解密配置区域（在DNSlog配置下方）
+        // ==============================================
+        JPanel cryptoPanel = new JPanel(new GridBagLayout());
+        cryptoPanel.setBorder(BorderFactory.createTitledBorder("加解密配置"));
+        GridBagConstraints cryptoGbc = new GridBagConstraints();
+        cryptoGbc.insets = new Insets(5, 5, 5, 5);
+        cryptoGbc.anchor = GridBagConstraints.WEST;
+        cryptoGbc.fill = GridBagConstraints.HORIZONTAL;
+        cryptoGbc.gridx = 0;
+        cryptoGbc.gridwidth = 1;
+        cryptoGbc.weightx = 1.0;
+
+        // 1. 启用接口加解密勾选框（修改：绑定配置字段）
+        cryptoGbc.gridy = 0;
+        JCheckBox enableCryptoCheck = new JCheckBox("启用接口加解密");
+        enableCryptoCheck.setSelected(dnslogConfig.cryptoEnabled); // 加载保存的状态（新增）
+        cryptoPanel.add(enableCryptoCheck, cryptoGbc);
+
+       // 2. 接口链接输入框（修改：绑定配置字段）
+        cryptoGbc.gridy++;
+        cryptoPanel.add(new JLabel("接口链接:"), cryptoGbc);
+        cryptoGbc.gridy++;
+        JTextField cryptoApiUrlField = new JTextField(20);
+        cryptoApiUrlField.setText(dnslogConfig.cryptoApiUrl); // 加载保存的链接（原默认值改为配置读取）
+        cryptoPanel.add(cryptoApiUrlField, cryptoGbc);
 
 
         // ==============================================
@@ -248,7 +280,7 @@ public class MySuiteTab {
         scanPanel.add(springCheck, scanGbc);
 
         scanGbc.gridy++;
-        scanGbc.weighty = 1.0;
+        scanGbc.weighty = 0.5;// 适度填充，避免过短
         scanPanel.add(new JPanel(), scanGbc);
 
 
@@ -472,6 +504,9 @@ public class MySuiteTab {
                 if (ceyeKey.isEmpty()) errorMsg.append("CEYE APIKey不能为空\n");
                 if (ceyeDomain.isEmpty()) errorMsg.append("CEYE APIDomain不能为空\n");
             }
+            // 新增：读取加解密配置
+            boolean cryptoEnabled = enableCryptoCheck.isSelected();
+            String cryptoApiUrl = cryptoApiUrlField.getText().trim();
             if (logEnabled && logPath.isEmpty()) {
                 errorMsg.append("日志存储位置不能为空\n");
             }
@@ -534,6 +569,13 @@ public class MySuiteTab {
                 JOptionPane.showMessageDialog(logPanel, "配置不完整：\n" + errorMsg, "保存失败", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+            // 新增：加解密配置验证
+            if (cryptoEnabled && cryptoApiUrl.isEmpty()) {
+                errorMsg.append("启用接口加解密时，接口链接不能为空\n");
+            }
+            if (cryptoEnabled && !cryptoApiUrl.startsWith("http://") && !cryptoApiUrl.startsWith("https://")) {
+                errorMsg.append("接口链接格式错误，需以http://或https://开头\n");
+            }
 
             // 保存到配置
             DnslogConfig config = DnslogConfig.getInstance();
@@ -553,6 +595,9 @@ public class MySuiteTab {
             config.filterKeywords = filterKeywords;
             config.springScanKeywords = springKeywords;
             config.springScanFilePath = springFilePath;
+            // 新增：保存加解密配置
+            config.cryptoEnabled = cryptoEnabled;
+            config.cryptoApiUrl = cryptoApiUrl;
 
             // 持久化
             try {
@@ -565,31 +610,37 @@ public class MySuiteTab {
         });
 
 
-        // ==============================================
-        // 组装四列布局
-        // ==============================================
-        // 第1列：DNSlog配置
+// ==============================================
+// 组装四列布局
+// ==============================================
+// 第1列：DNSlog配置 + 加解密配置
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 1.0;
+        gbc.weightx = 1.0; // 第1列占1份宽度
         mainConfigPanel.add(dnsPanel, gbc);
 
-        // 第2列：扫描选项
+        gbc.gridy++;
+        mainConfigPanel.add(cryptoPanel, gbc);
+
+// 第2列：扫描选项
         gbc.gridx = 1;
-        gbc.weightx = 1.0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0; // 第2列占1份宽度
         mainConfigPanel.add(scanPanel, gbc);
 
-        // 第3列：目录配置
+// 第3列：目录配置
         gbc.gridx = 2;
-        gbc.weightx = 1.0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0; // 第3列占1份宽度
         mainConfigPanel.add(dirPanel, gbc);
 
-        // 第4列：日志设置（右上角）
+// 第4列：日志设置
         gbc.gridx = 3;
-        gbc.weightx = 1.0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0; // 第4列占1份宽度
         mainConfigPanel.add(logPanel, gbc);
 
-        // 保存按钮（跨四列）
+// 保存按钮（跨四列）
         gbc.gridx = 0;
         gbc.gridy = 1;
         gbc.gridwidth = 4;
