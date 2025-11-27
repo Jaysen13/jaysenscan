@@ -146,6 +146,7 @@ public class MyHttpHandler implements HttpHandler {
         // 只解密已加密的数据包
         if (respReceived_flag.equals("false") && reqToBeSent_flag.equals("true")) {
             // 解密操作（可以显示在burp上面）
+//            monApi.logging().logToOutput("[DEBUG] handleHttpResponseReceived\n"+httpResponseReceived);
             HttpResponse newRespon = MyProxyRequestHandler.sendResponse(httpResponseReceived, "ResponseReceived",monApi);
             return ResponseReceivedAction.continueWith(newRespon.withAddedHeader("JaysenRespReceived","true"));
         }

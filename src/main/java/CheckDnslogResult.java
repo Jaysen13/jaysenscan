@@ -69,7 +69,7 @@ public class CheckDnslogResult {
                 TimeUnit.SECONDS
         );
 
-        this.montoyaApi.logging().logToOutput("CheckDnslogResult initialized successfully");
+//        this.montoyaApi.logging().logToOutput("CheckDnslogResult initialized successfully");
     }
 
     // 添加关键词及对应的请求到缓存
@@ -81,7 +81,7 @@ public class CheckDnslogResult {
 
     // 批量执行DNS检查的核心方法
     private void batchCheckDns() {
-        montoyaApi.logging().logToOutput("定时：开始检查dnslog记录");
+//        montoyaApi.logging().logToOutput("定时：开始检查dnslog记录");
         if (keywordToRequests.isEmpty()) {
             return;  // 缓存为空，无需检查
         }
@@ -133,7 +133,7 @@ public class CheckDnslogResult {
         }
 
         // 记录批量检查结果
-        this.montoyaApi.logging().logToOutput("批量DNS检查完成，检查关键词: " + currentBatch.size() + "，命中: " + hitKeywords.size());
+//        this.montoyaApi.logging().logToOutput("批量DNS检查完成，检查关键词: " + currentBatch.size() + "，命中: " + hitKeywords.size());
     }
 
     // 判断一个关键词是否在记录中
@@ -174,7 +174,7 @@ public class CheckDnslogResult {
                 JSONArray data = responseJson.getJSONArray("data");
                 // 如果存在记录，返回true
                 if (data != null && data.size() > 0) {
-                    this.montoyaApi.logging().logToOutput("CEYE检测到DNS记录数量: " + data.size());
+//                    this.montoyaApi.logging().logToOutput("CEYE检测到DNS记录数量: " + data.size());
                     JSONArray nameArray = new JSONArray();
                     // 遍历原始数组的每个JSONObject
                     for (int i = 0; i < data.size(); i++) {
@@ -240,8 +240,8 @@ public class CheckDnslogResult {
             String result = String.format("%s", queryStr);
             collaboratorResults.add(result);
         }
-        this.montoyaApi.logging().logToOutput("所有CollaboratorClient记录数量: " + collaboratorResults.size());
-        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
+//        this.montoyaApi.logging().logToOutput("所有CollaboratorClient记录数量: " + collaboratorResults.size());
+//        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
         return collaboratorResults;
     }
 

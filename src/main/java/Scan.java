@@ -285,7 +285,7 @@ public class Scan {
         String originalPath = request.path();
         // 1. 先判断是否为潜在API URL，不是则直接返回
         if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
-            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
+//            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
             return;
         }
 
@@ -312,7 +312,7 @@ public class Scan {
                             .withPath(scanPath);
 
                     HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(scannedRequest);
-                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
+//                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
 
                     if (attackReqResp.response() == null) {
                         continue;

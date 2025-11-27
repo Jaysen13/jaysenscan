@@ -1,27 +1,19 @@
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.core.Annotations;
-import burp.api.montoya.core.HighlightColor;
-import burp.api.montoya.http.handler.RequestToBeSentAction;
 import burp.api.montoya.http.message.HttpHeader;
-import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameter;
 import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.params.ParsedHttpParameter;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
-import burp.api.montoya.proxy.ProxyHttpRequestResponse;
 import burp.api.montoya.proxy.http.*;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Parameter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,17 +56,13 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
     @Override
     public ProxyResponseReceivedAction handleResponseReceived(InterceptedResponse interceptedResponse) {
         Boolean cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
-//        montoyaApi.logging().logToOutput("[DEBUG]handleResponseReceived\n" + interceptedResponse);
         String respToBeSent_flag = interceptedResponse.headerValue("JaysenRespToBeSent");
         // 响应体已解密的标志
         String respReceived_flag = interceptedResponse.headerValue("JaysenRespReceived");
         if (!cryptEnable) respToBeSent_flag = "true";
         if (respToBeSent_flag == null) respToBeSent_flag = "false";
-//        montoyaApi.logging().logToOutput("respToBeSent_flag:" + respToBeSent_flag);
-//        montoyaApi.logging().logToOutput("respReceived_flag:" + respReceived_flag);
         // 只加密已解密的目标
         if (respToBeSent_flag.equals("false") && respReceived_flag.equals("true")) {
-//            montoyaApi.logging().logToOutput("[DEBUG]handleResponseReceived\n开始实现加密响应体");
             // 加密操作（可以显示在burp上面）
             HttpResponse newRespon = sendResponse(interceptedResponse, "ResponseToBeSent",montoyaApi);
             return ProxyResponseReceivedAction.continueWith(newRespon.withAddedHeader("JaysenRespToBeSent","true"));
@@ -165,8 +153,6 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             // 读取完整body
             String newBody = jsonObject.getString("body");
             newRequest = newRequest.withMethod(newMethod).withBody(newBody);
-//            montoyaApi.logging().logToOutput("[DEBUG] 新请求如下：");
-//            montoyaApi.logging().logToOutput(newRequest);
             return newRequest;
         } catch (Exception e) {
             montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());
@@ -192,6 +178,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             }
             data.put("headers", headersMap); // 所有请求头（键值对）
             data.put("body", reponse.bodyToString()); // 原始请求体
+//            montoyaApi.logging().logToOutput("[DEBUG] sendResponse:\n " + reponse);
             // 创建url链接
             URL url = new URL(REQUEST_ENDPOINT);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -220,7 +207,6 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             } finally {
                 conn.disconnect(); // 关闭连接
             }
-//            montoyaApi.logging().logToOutput("[DEBUG] sendResponse" + response);
             // 解析返回的数据
             JSONObject jsonObject = JSON.parseObject(response.toString());
             Map<String, String> newHeadersMap = (Map<String, String>) jsonObject.get("headers");
@@ -231,8 +217,6 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             // 读取完整body
             String newBody = jsonObject.getString("body");
             newRespon = newRespon.withBody(newBody);
-//            montoyaApi.logging().logToOutput("[DEBUG] 新请求如下：");
-//            montoyaApi.logging().logToOutput(newRequest);
             return newRespon;
         } catch (Exception e) {
             montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());

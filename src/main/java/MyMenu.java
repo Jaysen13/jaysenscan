@@ -31,23 +31,23 @@ public class MyMenu implements ContextMenuItemsProvider {
         if (requestResponses.isEmpty()) {
             return menuItems; // 没有选中内容，直接返回
         }
-        // 2. 创建右键菜单项
-        JMenuItem myMenuItem = new JMenuItem("1、判断是否为json格式请求");
-        myMenuItem.addActionListener(e -> {
-            // 3. 遍历“请求-响应对”，
-            for (HttpRequestResponse rr : requestResponses) {
-                if(!IsJsonRequest.isJsonRequest(rr).isEmpty()) {
-                    // 将其添加到标签页
-                    this.mySuiteTab.addRequestInfo(rr,"fJson");
-                    montoyaApi.logging().logToOutput(rr.request().url() + "请求为JSON格式传输");
-                }
-                else {
-                    montoyaApi.logging().logToError(rr.request().url() + "请求非JSON格式传输");
-                }
-            }
-        });
+//        // 2. 创建右键菜单项
+//        JMenuItem myMenuItem = new JMenuItem("1、判断是否为json格式请求");
+//        myMenuItem.addActionListener(e -> {
+//            // 3. 遍历“请求-响应对”，
+//            for (HttpRequestResponse rr : requestResponses) {
+//                if(!IsJsonRequest.isJsonRequest(rr).isEmpty()) {
+//                    // 将其添加到标签页
+//                    this.mySuiteTab.addRequestInfo(rr,"fJson");
+//                    montoyaApi.logging().logToOutput(rr.request().url() + "请求为JSON格式传输");
+//                }
+//                else {
+//                    montoyaApi.logging().logToError(rr.request().url() + "请求非JSON格式传输");
+//                }
+//            }
+//        });
         // 创建第2个菜单选项
-        JMenuItem fastJsonScanMenuItem = new JMenuItem("2、发起fastjson漏洞探测");
+        JMenuItem fastJsonScanMenuItem = new JMenuItem("1、发起fastjson漏洞探测");
         ArrayList<HttpRequest> fastJsonRequest = new ArrayList<>();
         ArrayList<List<JsonData>> fastJsonData = new ArrayList<>();
         fastJsonScanMenuItem.addActionListener(e1 -> {
@@ -67,7 +67,7 @@ public class MyMenu implements ContextMenuItemsProvider {
             });
 
         });
-        menuItems.add(myMenuItem);
+//        menuItems.add(myMenuItem);
         menuItems.add(fastJsonScanMenuItem);
         return menuItems;
     }

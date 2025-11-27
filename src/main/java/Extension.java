@@ -19,6 +19,11 @@ public class Extension implements BurpExtension {
                    | |  \\__,_|  \\__, | |___/  \\___| |_| |_| |___/  \\___|  \\__,_| |_| |_|       \\/      |_| (_)  \\___/\s
                   _/ |           __/ |                                                                               \s
                  |__/           |___/                                                                                \s
+                
+                Author: jaysen
+                Github: https://github.com/Jaysen13/jaysenscan
+                Gitee: https://gitee.com/qiudaoyu_liao/jaysenscan
+                Version: V1.0
                 """);
         DnslogConfig.getInstance();
         // 初始化自定义线程池

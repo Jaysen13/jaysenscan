@@ -120,9 +120,9 @@ public class PluginTaskExecutor {
 //                    activeThreads, queueSize, queueUsage, completedTasks
 //            ));
 
-            if (queueUsage > 80) {
-                montoyaApi.logging().logToOutput("警告：队列即将满负荷，请调整参数");
-            }
+//            if (queueUsage > 80) {
+//                montoyaApi.logging().logToOutput("警告：队列即将满负荷，请调整参数");
+//            }
         }, 0, 30, TimeUnit.SECONDS);
 
         Runtime.getRuntime().addShutdownHook(new Thread(monitorExecutor::shutdownNow));
