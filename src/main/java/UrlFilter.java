@@ -1,8 +1,18 @@
-import burp.api.montoya.MontoyaApi;
-
+/*
+ * JaySenScan - Burp Suite 加密环境渗透测试插件
+ *
+ * Copyright (C) 2025 JaySen (Jaysen13)
+ *
+ * 本软件采用 CC BY-NC-SA 4.0 许可证进行许可
+ * 禁止用于商业售卖，允许非商业使用、修改和分享，衍生品需采用相同许可证
+ *
+ * 作者：JaySen
+ * 邮箱：3147330392@qq.com
+ * GitHub：https://github.com/Jaysen13/JaySenScan
+ * 许可证详情：参见项目根目录 LICENSE 文件
+ */
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class UrlFilter {
     // 静态资源后缀（排除）

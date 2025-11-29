@@ -1,10 +1,20 @@
+/*
+ * JaySenScan - Burp Suite 加密环境渗透测试插件
+ *
+ * Copyright (C) 2025 JaySen (Jaysen13)
+ *
+ * 本软件采用 CC BY-NC-SA 4.0 许可证进行许可
+ * 禁止用于商业售卖，允许非商业使用、修改和分享，衍生品需采用相同许可证
+ *
+ * 作者：JaySen
+ * 邮箱：3147330392@qq.com
+ * GitHub：https://github.com/Jaysen13/JaySenScan
+ * 许可证详情：参见项目根目录 LICENSE 文件
+ */
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.handler.*;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
-import burp.api.montoya.proxy.http.InterceptedRequest;
-import burp.api.montoya.proxy.http.ProxyResponseToBeSentAction;
-
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
