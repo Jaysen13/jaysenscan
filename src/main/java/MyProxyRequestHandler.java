@@ -61,6 +61,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
         String respReceived_flag = interceptedResponse.headerValue("JaysenRespReceived");
         if (!cryptEnable) respToBeSent_flag = "true";
         if (respToBeSent_flag == null) respToBeSent_flag = "false";
+        if (respReceived_flag == null) respReceived_flag = "false";
         // 只加密已解密的目标
         if (respToBeSent_flag.equals("false") && respReceived_flag.equals("true")) {
             // 加密操作（可以显示在burp上面）
@@ -139,8 +140,10 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             Map<String, String> newHeadersMap = (Map<String, String>) jsonObject.get("headers");
             // 将Map<String, String>转回List<HttpHeader>
             for (Map.Entry<String, String> entry : newHeadersMap.entrySet()) {
+                if (entry.getValue() != null && entry.getKey() != null){
                 HttpHeader newHeader = HttpHeader.httpHeader(entry.getKey(), entry.getValue());
                 newRequest = newRequest.withHeader(newHeader);
+                }
             }
             // 处理parameters
             Map<String, String> newParametersMap = (Map<String, String>) jsonObject.get("paramters");
@@ -212,7 +215,9 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             Map<String, String> newHeadersMap = (Map<String, String>) jsonObject.get("headers");
             // 将Map<String, String>转回List<HttpHeader>
             for (Map.Entry<String, String> entry : newHeadersMap.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null){
                 newRespon = newRespon.withAddedHeader(entry.getKey(),entry.getValue());
+                }
             }
             // 读取完整body
             String newBody = jsonObject.getString("body");

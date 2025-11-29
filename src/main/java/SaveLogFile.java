@@ -39,7 +39,6 @@ public class SaveLogFile {
     private final ScheduledExecutorService scheduler;
     private static final int BATCH_SIZE = 100; // 缓存阈值，满100条自动写入
     private final ReentrantLock cacheLock = new ReentrantLock(); // 缓存操作锁
-
     // 构造方法：可配置分割大小、保留天数等
     public SaveLogFile() {
         this.baseDir = DnslogConfig.getInstance().logPath + "/";

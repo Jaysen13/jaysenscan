@@ -91,6 +91,7 @@ public class MyHttpHandler implements HttpHandler {
                 String mark = "log4j_" + standardUrl;
                 if (!scannedMarks.contains(mark)) {
                     scannedMarks.add(mark);
+//                    monApi.logging().logToOutput("传递给log4jscan的数据包"+httpRequestToBeSent);
                     executor.submit(() -> scan.log4jScan(httpRequestToBeSent));
                 }
             }

@@ -18,6 +18,7 @@ public class Scan {
     private PluginTaskExecutor executor;
     Boolean logEnable;
     private SaveLogFile saveLogFile;
+    Boolean cryptEnable;
 
     public Scan(MontoyaApi montoyaApi,MySuiteTab mySuiteTab,PluginTaskExecutor executor) {
         this.montoyaApi = montoyaApi;
@@ -25,6 +26,8 @@ public class Scan {
         this.executor = executor;
         this.logEnable = DnslogConfig.getInstance().logEnabled;
         this.saveLogFile = new SaveLogFile();
+        this.cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
+
     }
 
     /**
@@ -143,10 +146,12 @@ public class Scan {
      * 根据JSON数据的位置，替换请求中的对应部分为payload
      */
     private HttpRequest replaceJsonInRequest(HttpRequest rawRequest, JsonData rawData, String payloadStr) {
+        String encodedPayload = payloadStr;
+        if (!cryptEnable){
         // 对payload进行URL编码（适用于GET/POST参数，请求体JSON无需编码）
-        String encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
+        encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
                 .replace("+", "%20"); // 确保空格编码为%20（符合URL规范）
-
+        }
         switch (rawData.getSourceType()) {
             case REQUEST_BODY:
                 // 替换请求体（保留其他请求头、参数等，仅修改body）
@@ -182,6 +187,7 @@ public class Scan {
      * Log4j 全版本漏洞探测
      * */
     public void log4jScan(HttpRequestToBeSent request) {
+//        montoyaApi.logging().logToOutput("开始log4j扫描  目标数据包如下:\n"+request);
         String topDomain1 = "log4j";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
@@ -205,19 +211,22 @@ public class Scan {
                     this.montoyaApi.logging().logToOutput("跳过空Payload[" + (i + 1) + "]");
                     continue;
                 }
-
                 // 参数值URL编码（请求头无需编码）
-                String encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
-                        .replace("+", "%20");
-
+                String encodedPayload = payloadStr;
+                if (!cryptEnable) {
+                    encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
+                            .replace("+", "%20");
+                }
                 // 替换所有请求头和参数（原有逻辑不变）
                 HttpRequest modifiedRequest = replaceAllHeaders(request, payloadStr);
                 modifiedRequest = replaceAllParameters(modifiedRequest, encodedPayload);
                 modifiedRequest = modifiedRequest.withAddedHeader("JaySen-Log4j-Scan", "true")
                         .withAddedHeader("JaySen-Log4j-Payload-Index", String.valueOf(i + 1));
-
+//                montoyaApi.logging().logToOutput("log4jScan:\n"+modifiedRequest);
                 // 发送请求
                 HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+//                montoyaApi.logging().logToOutput(attackReqResp.request()+"\n");
+//                montoyaApi.logging().logToOutput(attackReqResp.response()+"\n");
                 if (logEnable) {
                     // 保存日志
                     saveLogFile.addToBatch(attackReqResp);
@@ -242,9 +251,16 @@ public class Scan {
         List<String> reservedHeaders = new ArrayList<>();
         reservedHeaders.add("Host");          // 必须保留，否则目标地址失效
         reservedHeaders.add("Content-Length");// 必须保留，否则请求体长度不匹配
-//        reservedHeaders.add("Content-Type");  // 保留，确保POST表单格式正确
+        reservedHeaders.add("JaysenReqReceived");
+        reservedHeaders.add("JaysenReqToBeSent");
+        reservedHeaders.add("Content-Type");  // 保留，确保POST表单格式正确
         reservedHeaders.add("Connection");    // 保留，维持连接状态
-
+        reservedHeaders.add("Accept");
+        reservedHeaders.add("Accept-Encoding");
+        reservedHeaders.add("Accept-Language");
+        reservedHeaders.add("Transfer-Encoding");
+        reservedHeaders.add("Content-Encoding");
+        reservedHeaders.add("Content-Language");
         // 遍历所有请求头，替换非关键头的值
         for (HttpHeader header : request.headers()) {
             String headerName = header.name();
