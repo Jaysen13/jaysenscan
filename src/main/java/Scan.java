@@ -20,6 +20,9 @@ import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -311,7 +314,7 @@ public class Scan {
      */
     public void springScan(HttpRequestToBeSent request) {
         String originalUrl = request.url();
-        String originalPath = request.path();
+        String originalPath = request.withRemovedParameters(request.parameters()).path();
         // 1. 先判断是否为潜在API URL，不是则直接返回
         if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
 //            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
@@ -333,7 +336,7 @@ public class Scan {
 
             // 对当前层级的路径，拼接所有Payload进行扫描
             for (String payload : springPayloads) {
-                String scanPath = currentPath + "/" + payload;
+                String scanPath = currentPath + payload;
                 try {
                     // 添加扫描标记头，避免重复扫描
                     HttpRequest scannedRequest = request
@@ -341,7 +344,7 @@ public class Scan {
                             .withPath(scanPath);
 
                     HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(scannedRequest);
-//                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
+                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
 
                     if (attackReqResp.response() == null) {
                         continue;

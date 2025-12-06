@@ -36,7 +36,7 @@ public class Extension implements BurpExtension {
                 Author: jaysen
                 Github: https://github.com/Jaysen13/jaysenscan
                 Gitee: https://gitee.com/qiudaoyu_liao/jaysenscan
-                Version: V1.0
+                Version: V1.1
                 """);
         DnslogConfig.getInstance();
         // 初始化自定义线程池

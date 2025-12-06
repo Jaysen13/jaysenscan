@@ -37,6 +37,15 @@
 - 兼容主流工具：与 sqlmap、xray 等无缝对接
 - 解决加密障碍：工具发送的 payload 经插件自动加密后发送
 
+## 加解密功能演示
+
+### 自动加解密
+
+![自动加解密](./README.assets/自动加解密.gif)
+
+### 联动sqlmap
+
+![联动sqlmap](./README.assets/联动sqlmap.gif)
 
 ## 使用指南（首次使用必读）
 

@@ -128,7 +128,7 @@ public class DnslogConfig {
                         "/swagger-ui.html",  // Swagger2 旧版UI路径（兼容用）
                         "/swagger-ui",      // Swagger3 新版UI路径
                         "/swagger-ui/index.html",  // Swagger3 完整UI路径
-                        "/v3/api-docs/**",   // Swagger3 接口文档JSON数据
+                        "/v3/api-docs",   // Swagger3 接口文档JSON数据
                         "/v2/api-docs",      // Swagger2 兼容路径
                         "/api-docs",         // 通用API文档路径
                         "/swagger-resources/",  // Swagger 资源文件
