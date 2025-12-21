@@ -17,6 +17,7 @@ import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -159,7 +160,10 @@ public class MyHttpHandler implements HttpHandler {
             // 解密操作（可以显示在burp上面）
 //            monApi.logging().logToOutput("[DEBUG] handleHttpResponseReceived\n"+httpResponseReceived);
             HttpResponse newRespon = MyProxyRequestHandler.sendResponse(httpResponseReceived, "ResponseReceived",monApi);
-            return ResponseReceivedAction.continueWith(newRespon.withAddedHeader("JaysenRespReceived","true"));
+            String jkErrorFlag = newRespon.headerValue("JKError");
+            if (jkErrorFlag == null) {
+                return ResponseReceivedAction.continueWith(newRespon.withAddedHeader("JaysenRespReceived","true"));
+            }
         }
 
         return ResponseReceivedAction.continueWith(httpResponseReceived);

@@ -12,6 +12,7 @@
  * 许可证详情：参见项目根目录 LICENSE 文件
  */
 import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.params.HttpParameter;
 import burp.api.montoya.http.message.params.HttpParameterType;
@@ -27,6 +28,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,8 +60,11 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             // 调用解密请求数据包
             if (reqReceived_flag.equals("false")) {
                 // 解密操作（可以显示在burp上面）
-                HttpRequest newRequest = sendRequest(interceptedRequest, "RequestReceived",montoyaApi).withAddedHeader("JaysenReqReceived","true");
-                return ProxyRequestToBeSentAction.continueWith(newRequest);
+                HttpRequest newRequest = sendRequest(interceptedRequest, "RequestReceived",montoyaApi);
+                String jkErrorFlag = newRequest.headerValue("JKError");
+                if (jkErrorFlag == null){
+                    return ProxyRequestToBeSentAction.continueWith(newRequest.withAddedHeader("JaysenReqReceived","true"));
+                }
             }
         }
         return ProxyRequestToBeSentAction.continueWith(interceptedRequest);
@@ -137,6 +142,13 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
                 dos.write(jsonBody.getBytes(StandardCharsets.UTF_8));
                 dos.flush();
             }
+            // 获取接口响应状态码
+            int statusCode = conn.getResponseCode();
+//            montoyaApi.logging().logToOutput(REQUEST_ENDPOINT);
+//            montoyaApi.logging().logToOutput(statusCode);
+            if (statusCode != 200) {
+                newRequest.withAddedHeader("JKError","true");
+            }
             // 读取响应
             StringBuilder response = new StringBuilder();
             try (BufferedReader br = new BufferedReader(
@@ -173,8 +185,8 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
         } catch (Exception e) {
             montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());
         }
-        // 若远程接口出现错误，则不更改返回原数据包
-        return request;
+        // 若远程接口出现错误，则不更改返回原数据包, 标记接口错误
+        return request.withAddedHeader("JKError","true");
     }
 
     public static HttpResponse sendResponse(HttpResponse reponse, String path,MontoyaApi montoyaApi) {
@@ -199,6 +211,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             URL url = new URL(REQUEST_ENDPOINT);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             // 配置连接参数
+            conn.setInstanceFollowRedirects(false);// 关闭自动跟随重定向
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);// 允许发送响应体
             conn.setDoInput(true); // 允许接受响应体
@@ -212,6 +225,11 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
                 dos.write(jsonBody.getBytes(StandardCharsets.UTF_8));
                 dos.flush();
             }
+            // 获取接口响应状态码
+            int statusCode = conn.getResponseCode();
+            if (statusCode != 200) {
+                newRespon.withAddedHeader("JKError","true");
+            }
             // 读取响应
             StringBuilder response = new StringBuilder();
             try (BufferedReader br = new BufferedReader(
@@ -223,6 +241,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             } finally {
                 conn.disconnect(); // 关闭连接
             }
+
             // 解析返回的数据
             JSONObject jsonObject = JSON.parseObject(response.toString());
             Map<String, String> newHeadersMap = (Map<String, String>) jsonObject.get("headers");
@@ -234,12 +253,14 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             }
             // 读取完整body
             String newBody = jsonObject.getString("body");
-            newRespon = newRespon.withBody(newBody);
+            // 将 newBody 按 UTF-8 转ByteArray字节数组
+            ByteArray newBodyBytes = ByteArray.byteArray(newBody.getBytes(StandardCharsets.UTF_8));
+            newRespon = newRespon.withBody(newBodyBytes);
             return newRespon;
         } catch (Exception e) {
             montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());
         }
-        // 若远程接口出现错误，则不更改返回原数据包
-        return reponse;
+        // 若远程接口出现错误，则不更改返回原数据包 , 并标记接口错误
+        return reponse.withAddedHeader("JKError","true");
     }
 }

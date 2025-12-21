@@ -11,6 +11,7 @@
  * GitHub：https://github.com/Jaysen13/JaySenScan
  * 许可证详情：参见项目根目录 LICENSE 文件
  */
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
@@ -52,8 +53,9 @@ public class SaveLogFile {
     private final ScheduledExecutorService scheduler;
     private static final int BATCH_SIZE = 100; // 缓存阈值，满100条自动写入
     private final ReentrantLock cacheLock = new ReentrantLock(); // 缓存操作锁
+    MontoyaApi montoyaApi;
     // 构造方法：可配置分割大小、保留天数等
-    public SaveLogFile() {
+    public SaveLogFile(MontoyaApi montoyaApi) {
         this.baseDir = DnslogConfig.getInstance().logPath + "/";
         this.prefix = "jaysenscanlog_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_";
         this.maxFileSize = 100 * 1024 * 1024; // 100MB
@@ -61,6 +63,7 @@ public class SaveLogFile {
         this.attackReqresps = new ArrayList<>();
         // 定时任务线程池（单线程即可，避免并发检查冲突）
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.montoyaApi = montoyaApi;
         initDir();
         cleanExpiredLogs(); // 启动时清理过期日志
     }
@@ -132,7 +135,7 @@ public class SaveLogFile {
                 } finally {
                     cacheLock.unlock();
                 }
-                System.err.println("批量写入日志失败：" + e.getMessage());
+                montoyaApi.logging().logToError("批量写入日志失败：" + e.getMessage());
             }
         }
     }

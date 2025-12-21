@@ -41,7 +41,7 @@ public class Scan {
         this.mySuiteTab = mySuiteTab;
         this.executor = executor;
         this.logEnable = DnslogConfig.getInstance().logEnabled;
-        this.saveLogFile = new SaveLogFile();
+        this.saveLogFile = new SaveLogFile(montoyaApi);
         this.cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
 
     }
@@ -241,9 +241,12 @@ public class Scan {
 //                montoyaApi.logging().logToOutput("log4jScan:\n"+modifiedRequest);
                 // 发送请求
                 HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+//                montoyaApi.logging().logToOutput(modifiedRequest+"\n");
 //                montoyaApi.logging().logToOutput(attackReqResp.request()+"\n");
 //                montoyaApi.logging().logToOutput(attackReqResp.response()+"\n");
                 if (logEnable) {
+                    HttpRequestResponse saveReqResp = attackReqResp;
+
                     // 保存日志
                     saveLogFile.addToBatch(attackReqResp);
                 }
@@ -344,7 +347,7 @@ public class Scan {
                             .withPath(scanPath);
 
                     HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(scannedRequest);
-                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
+//                    montoyaApi.logging().logToOutput("Spring扫描中: " + attackReqResp.request().url());
 
                     if (attackReqResp.response() == null) {
                         continue;

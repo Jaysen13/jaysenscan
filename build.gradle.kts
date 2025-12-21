@@ -17,12 +17,12 @@ tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
-version = "1.1"
+version = "1.2"
 
 tasks.jar {
     val appName = "JaySenScan"
     val dynamicName = "${appName}-${version}.jar" // 最终产物名：JaySenScan-1.0.jar
-    archiveFileName.set(dynamicName) // 关键修正：替换 archiveName → archiveFileName
+    archiveFileName.set(dynamicName)
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(configurations.runtimeClasspath.get().filter { it.isDirectory })
