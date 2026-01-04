@@ -22,6 +22,8 @@ import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.proxy.http.*;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
+
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
@@ -205,7 +207,8 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
                 newRespon = newRespon.withRemovedHeader(header.name());
             }
             data.put("headers", headersMap); // 所有请求头（键值对）
-            data.put("body", reponse.bodyToString()); // 原始请求体
+            String bodyStr = new String(reponse.body().getBytes(), StandardCharsets.UTF_8);
+            data.put("body", bodyStr); // 原始请求体
 //            montoyaApi.logging().logToOutput("[DEBUG] sendResponse:\n " + reponse);
             // 创建url链接
             URL url = new URL(REQUEST_ENDPOINT);
