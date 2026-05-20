@@ -28,7 +28,7 @@
 
 ### 🔍 高危漏洞扫描
 
-- 内置检测：支持 Fastjson 反序列化、Log4j 反序列化、Spring 接口扫描
+- 内置检测：支持 Fastjson 反序列化、Log4j 反序列化、Spring 接口未授权访问、Shiro 反序列化（550/721）、Shiro 权限绕过
 - 智能适配：加密环境下自动对 payload 进行加密处理
 - 防重机制：5 分钟内避免重复扫描同一目标，减少冗余请求
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
 1. 配置 DNSlog 服务（支持 Burp Collaborator 或 CEYE）
    - 专业版 Burp 可使用 Collaborator（需点击"自动生成域名"）
    - 社区版需使用 CEYE 并填写 API 信息
-2. 勾选需要启用的漏洞扫描类型（Fastjson/Log4j/Spring）
+2. 勾选需要启用的漏洞扫描类型（Fastjson / Log4j / Spring / Shiro）
 3. 点击"保存配置"
 
 ![image-20260520161533825](./README.assets/image-20260520161533825.png)
@@ -252,11 +252,38 @@ if __name__ == '__main__':
 
 ![SQL 注入联动效果](./README.assets/image-20251129170217229-1764415249254-145.png)
 
-### 4、Shiro权限绕过/550反序列化/721反序列化
+### 4. Shiro 反序列化与权限绕过检测
 
-shiro550找到的若密钥会标注在头内，方便后续使用工具找链利用
+#### Shiro550 检测
+
+1. 确保已配置 DNSLog 服务（Collaborator 或 CEYE）
+2. 插件在识别到目标为 Shiro 框架后，自动遍历内置的 shiro_keys 字典（存储于 `~/.burp/shirokeys.txt`）
+3. 通过构造加密的 URLDNS 载荷发送请求，DNSLog 平台收到回显即确认漏洞
+
+#### Shiro721 检测
+
+1. 前提：目标请求中需已有合法的 `rememberMe` cookie（用户已登录）
+2. 插件篡改密文末尾字节，通过 `Set-Cookie: rememberMe=deleteMe` 响应判断 Padding Oracle 是否存在
+3. 在无密钥情况下，利用 Padding Oracle 通道即可解密/重加密，最终达到反序列化 RCE
+
+#### Shiro 权限绕过
+
+1. 插件自动构造绕过 Payload（如 `/..;/`、`/;/`、`/%20/` 等）
+2. 通过与原始请求的响应差异对比，识别权限绕过漏洞
+
+> shiro550 找到的密钥会标注在请求头 `JaySen-shiroKey` 中，方便后续使用工具找链利用
 
 ![image-20260520161340223](./README.assets/image-20260520161340223.png)
+
+### 5. Spring 接口未授权访问检测
+
+1. 在`Spring目录扫描配置`中配置过滤后缀名和关键词，避免对静态资源发起扫描
+2. 插件从 `~/.burp/springapiscan.txt` 加载常见的 Spring 接口路径（如 `/actuator`、`/swagger-ui.html`、`/druid/`、`/doc.html` 等）
+3. 递归扫描：从当前路径逐层向上拼接 Payload，如 `/api/user/list` 会依次扫描 `/api/user/list/actuator` → `/api/user/actuator` → `/api/actuator` → `/actuator`
+4. 命中时自动标记为 "Spring未授权访问"
+
+![image-20260520161734228](./README.assets/image-20260520161734228.png)
+![扫描路径文件示例](./README.assets/image-20251129161538373-1764415249254-141.png)
 
 
 ## 实用技巧
@@ -276,6 +303,15 @@ shiro550找到的若密钥会标注在头内，方便后续使用工具找链利
 
 - **Q：社区版 Burp 能否使用？**  
   A：可以，但不支持 Burp Collaborator，需配置 CEYE 作为 DNSlog 服务。
+
+- **Q：加解密接口返回错误怎么办？**  
+  A：检查接口地址是否正确、服务是否启动；查看 Burp Output 日志排查具体错误信息。
+
+- **Q：为什么 Shiro550 扫描没有结果？**  
+  A：确认三件事：① 已配置 DNSLog 服务；② Burp 启动命令已添加 `--add-opens java.base/java.net=ALL-UNNAMED` 参数；③ 密钥文件 `~/.burp/shirokeys.txt` 存在且内容非空。
+
+- **Q：为什么 Shiro721 扫描没有触发？**  
+  A：721 检测需要请求中已有合法的 `rememberMe` cookie（用户已登录），无 cookie 时会自动跳过。
 
 - **Q：后续漏洞检测模块还会扩展吗？**  
   A：会的，师傅们可以留言
