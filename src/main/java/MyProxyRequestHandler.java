@@ -54,13 +54,13 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
         String host = interceptedRequest.headerValue("Host");
         Boolean cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
         String reqReceived_flag = interceptedRequest.headerValue("JaysenReqReceived");
-        if (!cryptEnable) reqReceived_flag = "true";
+//        if (!cryptEnable) reqReceived_flag = "true";
         if (reqReceived_flag == null) reqReceived_flag = "false";
 
         // 只解密指定的目标
         if (targetDomain.isEmpty() || "*".equals(targetDomain) || host.contains(targetDomain)) {
             // 调用解密请求数据包
-            if (reqReceived_flag.equals("false")) {
+            if (cryptEnable && reqReceived_flag.equals("false")) {
                 // 解密操作（可以显示在burp上面）
                 HttpRequest newRequest = sendRequest(interceptedRequest, "RequestReceived",montoyaApi);
                 String jkErrorFlag = newRequest.headerValue("JKError");
@@ -79,11 +79,11 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
         String respToBeSent_flag = interceptedResponse.headerValue("JaysenRespToBeSent");
         // 响应体已解密的标志
         String respReceived_flag = interceptedResponse.headerValue("JaysenRespReceived");
-        if (!cryptEnable) respToBeSent_flag = "true";
+//        if (!cryptEnable) respToBeSent_flag = "true";
         if (respToBeSent_flag == null) respToBeSent_flag = "false";
         if (respReceived_flag == null) respReceived_flag = "false";
         // 只加密已解密的目标
-        if (respToBeSent_flag.equals("false") && respReceived_flag.equals("true")) {
+        if (cryptEnable && respToBeSent_flag.equals("false") && respReceived_flag.equals("true")) {
             // 加密操作（可以显示在burp上面）
             HttpResponse newRespon = sendResponse(interceptedResponse, "ResponseToBeSent",montoyaApi);
             return ProxyResponseReceivedAction.continueWith(newRespon.withAddedHeader("JaysenRespToBeSent","true"));

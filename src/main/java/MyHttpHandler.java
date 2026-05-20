@@ -56,20 +56,28 @@ public class MyHttpHandler implements HttpHandler {
         String fjson_flag = httpRequestToBeSent.headerValue("JaySen-FastJson-Scan");
         String log4j_flag = httpRequestToBeSent.headerValue("JaySen-Log4j-Scan");
         String spring_flag = httpRequestToBeSent.headerValue("JaySen-Spring-Scan");
+        String isShiro_flag = httpRequestToBeSent.headerValue("JaySen-isShiro");
+        String shiro_flag = httpRequestToBeSent.headerValue("JaySen-Shiro-Scan");
         String reqToBeSent_flag = httpRequestToBeSent.headerValue("JaysenReqToBeSent");
         Boolean fjsonEnable = DnslogConfig.getInstance().fastJsonScanEnabled;
         Boolean log4jEnable = DnslogConfig.getInstance().log4jScanEnabled;
-        Boolean swgerEnable = DnslogConfig.getInstance().springScanEnabled;
+        Boolean springEnable = DnslogConfig.getInstance().springScanEnabled;
+        Boolean shiroEnable = DnslogConfig.getInstance().shiroScanEnabled;
         Boolean cryptEnable = DnslogConfig.getInstance().cryptoEnabled;
         // 过滤未开启的扫描
-        if (!fjsonEnable) fjson_flag = "true";
-        if (!log4jEnable) log4j_flag = "true";
-        if (!swgerEnable) spring_flag = "true";
-        if (!cryptEnable) reqToBeSent_flag = "true";
+//        if (!fjsonEnable) fjson_flag = "true";
+//        if (!log4jEnable) log4j_flag = "true";
+//        if (!swgerEnable) spring_flag = "true";
+//        if (!shiroEnable) shiro_flag = "true";
+//        if (!cryptEnable) reqToBeSent_flag = "true";
+//        // 若Shiro扫描未启用，则跳过Shiro框架判断
+//        if (!shiroEnable) isShiro_flag = "true";
         // 未扫描的赋值flag
         if (fjson_flag == null) fjson_flag = "false";
         if (log4j_flag == null) log4j_flag = "false";
         if (spring_flag == null) spring_flag = "false";
+        if (isShiro_flag == null) isShiro_flag = "false";
+        if (shiro_flag == null) shiro_flag = "false";
         if (reqToBeSent_flag == null) reqToBeSent_flag = "false";
         // 过滤掉静态资源路径和指定路径
         if (!UrlFilter.isPotenialUrl(httpRequestToBeSent.url())) {
@@ -77,47 +85,71 @@ public class MyHttpHandler implements HttpHandler {
         }
 
         // 放行已扫描的数据（所有扫描类型都完成时才放行）
-        if (fjson_flag.equals("true") && log4j_flag.equals("true") && spring_flag.equals("true") && reqToBeSent_flag.equals("true")) {
-            return RequestToBeSentAction.continueWith(httpRequestToBeSent);
-        }
+//        if (fjson_flag.equals("true") && log4j_flag.equals("true") && spring_flag.equals("true") && isShiro_flag.equals("true") && shiro_flag.equals("true") && reqToBeSent_flag.equals("true")) {
+//            return RequestToBeSentAction.continueWith(httpRequestToBeSent);
+//        }
 
         // 只扫描/加密指定的目标
         if (targetDomain.isEmpty() || "*".equals(targetDomain) || host.contains(targetDomain)) {
+            String mark;
             String standardUrl = standardizeUrl(httpRequestToBeSent.url());
+//            monApi.logging().logToOutput("spring:"+spring_flag);
+//            monApi.logging().logToOutput("fjson:"+fjson_flag);
+//            monApi.logging().logToOutput("log4j:"+log4j_flag);
+//            monApi.logging().logToOutput("shiro:"+shiro_flag);
+            if (fjson_flag.equals("false") && log4j_flag.equals("false") && spring_flag.equals("false") && isShiro_flag.equals("false") && shiro_flag.equals("false")) {
+                // 扫描FastJson
+                if (fjsonEnable) {
+                    List<JsonData> jsonData = IsJsonRequest.isJsonRequest(httpRequestToBeSent);
+                    if (!jsonData.isEmpty()) {
+                        mark = "fastjson_" + standardUrl;
+                        if (!scannedMarks.contains(mark)) {
+                            scannedMarks.add(mark);
+                            executor.submit(() -> scan.fastJsonScan(httpRequestToBeSent, jsonData));
+                        }
+                    }
+                }
 
-            // 扫描FastJson
-            if (fjson_flag.equals("false")) {
-                List<JsonData> jsonData = IsJsonRequest.isJsonRequest(httpRequestToBeSent);
-                if (!jsonData.isEmpty()) {
-                    String mark = "fastjson_" + standardUrl;
+                // 扫描Log4j
+                if (log4jEnable) {
+                    mark = "log4j_" + standardUrl;
                     if (!scannedMarks.contains(mark)) {
                         scannedMarks.add(mark);
-                        executor.submit(() -> scan.fastJsonScan(httpRequestToBeSent, jsonData));
+    //                    monApi.logging().logToOutput("传递给log4jscan的数据包"+httpRequestToBeSent);
+                        executor.submit(() -> scan.log4jScan(httpRequestToBeSent));
+                    }
+                }
+
+                // 扫描Spring
+                if (springEnable) {
+                    mark = "spring_" + standardUrl;
+                    if (!scannedMarks.contains(mark)) {
+                        scannedMarks.add(mark);
+                        executor.submit(() -> scan.springScan(httpRequestToBeSent));
+                    }
+                }
+
+                // 扫描shiro 首先判断是否是shiro框架
+                if (shiroEnable) {
+                    if (scan.isShiro(httpRequestToBeSent)) {
+                        monApi.logging().logToOutput("目标是shiro框架:" + httpRequestToBeSent.url());
+                        mark = "shiro_" + standardUrl;
+                        if (!scannedMarks.contains(mark)) {
+                            scannedMarks.add(mark);
+                            executor.submit(() -> {
+                                try {
+                                    scan.shiroScan(httpRequestToBeSent);
+                                } catch (Exception e) {
+                                    monApi.logging().logToOutput("shiro扫描出错：" + e.getMessage());
+                                }
+                            });
+                        }
                     }
                 }
             }
 
-            // 扫描Log4j
-            if (log4j_flag.equals("false")) {
-                String mark = "log4j_" + standardUrl;
-                if (!scannedMarks.contains(mark)) {
-                    scannedMarks.add(mark);
-//                    monApi.logging().logToOutput("传递给log4jscan的数据包"+httpRequestToBeSent);
-                    executor.submit(() -> scan.log4jScan(httpRequestToBeSent));
-                }
-            }
-
-            // 扫描Spring
-            if (spring_flag.equals("false")) {
-                String mark = "spring_" + standardUrl;
-                if (!scannedMarks.contains(mark)) {
-                    scannedMarks.add(mark);
-                    executor.submit(() -> scan.springScan(httpRequestToBeSent));
-                }
-            }
-
             // 调用加密请求数据包
-            if (reqToBeSent_flag.equals("false")) {
+            if (cryptEnable && reqToBeSent_flag.equals("false")) {
                 // 加密回去并请求
                 HttpRequest newRequest = MyProxyRequestHandler.sendRequest(httpRequestToBeSent, "RequestToBeSent",monApi).withAddedHeader("JaysenReqToBeSent","true");
                 return RequestToBeSentAction.continueWith(newRequest);
@@ -152,11 +184,11 @@ public class MyHttpHandler implements HttpHandler {
         String respReceived_flag = httpResponseReceived.headerValue("JaysenRespReceived");
         // 已加密的标记
         String reqToBeSent_flag = httpResponseReceived.initiatingRequest().headerValue("JaysenReqToBeSent");
-        if (!cryptEnable) respReceived_flag = "true";
+//        if (!cryptEnable) respReceived_flag = "true";
         if (respReceived_flag == null) respReceived_flag = "false";
         if (reqToBeSent_flag == null) reqToBeSent_flag = "false";
         // 只解密已加密的数据包
-        if (respReceived_flag.equals("false") && reqToBeSent_flag.equals("true")) {
+        if (cryptEnable && respReceived_flag.equals("false") && reqToBeSent_flag.equals("true")) {
             // 解密操作（可以显示在burp上面）
 //            monApi.logging().logToOutput("[DEBUG] handleHttpResponseReceived\n"+httpResponseReceived);
             HttpResponse newRespon = MyProxyRequestHandler.sendResponse(httpResponseReceived, "ResponseReceived",monApi);

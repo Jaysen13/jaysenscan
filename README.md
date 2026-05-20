@@ -164,8 +164,12 @@
 2. 勾选需要启用的漏洞扫描类型（Fastjson/Log4j/Spring）
 3. 点击"保存配置"
 
-![漏洞扫描配置](./README.assets/image-20251129160552656-1764415249254-136.png)
-![DNSlog 配置](./README.assets/image-20251129160711021-1764415249254-140.png)
+![image-20260520161533825](./README.assets/image-20260520161533825.png)
+<img src="./README.assets/image-20260520161625096.png" alt="image-20260520161625096" style="zoom: 67%;" />
+
+然后在Spring目录扫描配置框内有两个框，分别是**过滤后缀名**、**过滤关键词**
+
+【！！！】意思就是这个插件的加解密功能、漏扫功能都不会经过指定的后缀名/关键词
 
 
 #### Spring 接口扫描
@@ -175,8 +179,10 @@
 3. 递归扫描：例如 `/api/a/b/c` 会触发 `/api/a/b/c`、`/api/a/b`、`/api/a`、`/api`、`/` 的扫描
 4. 防重机制：5 分钟内不重复扫描同一路径
 
-![Spring 扫描配置](./README.assets/image-20251129161029780-1764415249254-138.png)
+![image-20260520161734228](./README.assets/image-20260520161734228.png)
 ![扫描路径文件示例](./README.assets/image-20251129161538373-1764415249254-141.png)
+
+
 
 
 ## 实战示例
@@ -193,8 +199,11 @@
 3. 发送测试请求，Burp 自动解密显示明文
 4. 插件自动生成加密后的检测 payload，通过 DNSlog 验证漏洞
 
-![Fastjson 漏洞检测流程](./README.assets/image-20251129163846941-1764415249254-143.png)
-![Fastjson 检测结果](./README.assets/image-20251129164421635-1764415249254-142.png)
+![image-20260520162637951](./README.assets/image-20260520162637951.png)
+
+插件自动先将json数据替换为payload再按照我们指定好的加密后发送，dns接收到该次请求即可在扫描结果处看到
+
+![image-20260520170034623](./README.assets/image-20260520170034623.png)
 
 
 ### 2. AES 加密的 Log4j 漏洞检测
@@ -204,8 +213,11 @@
 3. 插件生成加密后的 Log4j payload 进行检测
 4. 通过 DNSlog 监控命中情况确认漏洞
 
-![Log4j 解密效果](./README.assets/image-20251129164937991-1764415249254-144.png)
-![Log4j 检测结果](./README.assets/image-20251129165101883-1764415249254-147.png)
+![image-20260520165956203](./README.assets/image-20260520165956203.png)
+
+可以看见：log4j的payload自动加入post请求体参数内加密后传输加密，dns接收到该次请求即可在扫描结果处看到
+
+![image-20260520171134629](./README.assets/image-20260520171134629.png)
 
 
 ### 3. 联动 sqlmap 检测加密 SQL 注入
@@ -223,6 +235,12 @@
 4. sqlmap 发送的 payload 经插件自动加密，成功检测出注入点
 
 ![SQL 注入联动效果](./README.assets/image-20251129170217229-1764415249254-145.png)
+
+### 4、Shiro权限绕过/550反序列化/721反序列化
+
+shiro550找到的若密钥会标注在头内，方便后续使用工具找链利用
+
+![image-20260520161340223](./README.assets/image-20260520161340223.png)
 
 
 ## 实用技巧
@@ -253,9 +271,16 @@
 ### 👨‍💻 作者信息
 
 - 作者：JaySen
+
 - 邮箱：3147330392@qq.com
+
 - GitHub：[Jaysen13/JaySenScan](https://github.com/Jaysen13/JaySenScan)
-- Gitee:[jaysen13/jaysenscan](https://gitee.com/qiudaoyu_liao/jaysenscan)
+
+- 微信公众号：**凌霜雁安全志**
+
+  后续公众号会不定期分享网络安全类知识和工具推荐，欢迎关注~
+
+<img src="./README.assets/image-20260520171623863.png" alt="image-20260520171623863" style="zoom:33%;" />
 
 ### 📬 反馈与贡献
 
@@ -265,3 +290,18 @@
 ### 📄 许可证
 
 本项目基于 CC BY-NC-SA 4.0 许可证开源：允许非商业使用、修改、分发（需保留原作者声明），**禁止任何形式的商业售卖**（含二开版本）。
+
+⭐ Star 历史趋势
+
+ 如果这个项目对你有帮助，欢迎点亮 Star 支持一下！ 您的start，我的动力
+
+<img src="./README.assets/image-20260520171657363.png" alt="image-20260520171657363" style="zoom:50%;" />
+
+<a href="https://www.star-history.com/?repos=Jaysen13%2Fjaysenscan&type=date&legend=top-left">
+
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Jaysen13/jaysenscan&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Jaysen13/jaysenscan&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Jaysen13/jaysenscan&type=date&legend=top-left" />
+ </picture>
+</a>

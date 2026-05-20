@@ -36,7 +36,6 @@ public class DnslogConfig {
             System.getProperty("user.home") + "/.burp/dnslog_config.json"
     );
 
-    // ========================= 原有配置字段 =========================
     public String platform = "collaborator"; // 默认使用 collaborator
     public String ceyeApiKey = "";
     public String ceyeApiDomain = "";
@@ -50,6 +49,7 @@ public class DnslogConfig {
     public boolean fastJsonScanEnabled = true; // 默认启用 FastJson 扫描
     public boolean log4jScanEnabled = true;    // 默认启用 Log4j 扫描
     public boolean springScanEnabled = true;   // 默认启用 Spring 扫描
+    public boolean shiroScanEnabled = true;    // 默认启用 Shiro 扫描
     // 日志设置
     public boolean logEnabled = true;          // 默认启用日志保存
     public String logPath = System.getProperty("user.home") + "/.burp/jaysenscanlog";
@@ -66,12 +66,18 @@ public class DnslogConfig {
     private List<String> springPaths;
     public boolean cryptoEnabled = false; // 是否启用接口加解密（默认关闭）
     public String cryptoApiUrl = "http://127.0.0.1:5000"; // 加解密接口链接（默认值）
-
+    // shiro 550 密钥字典文件路径
+    public String shiroKeysFilePath = System.getProperty("user.home") + "/.burp/shirokeys.txt";
+    // transient 由文件动态加载
+    private transient List<String> shiroKeys;
     // 私有构造方法（防止外部实例化）
     private DnslogConfig() {
         // 初始化Spring扫描文件并加载路径列表
         initSpringScanFile();
         loadSpringPaths();
+        // 初始化Shiro密钥文件并加载
+        initShiroKeysFile();
+        loadShiroKeys();
     }
 
     // 单例模式：双重检查锁确保线程安全
@@ -198,7 +204,68 @@ public class DnslogConfig {
         initSpringScanFile(); // 确保新路径文件存在
         loadSpringPaths();    // 重新加载
     }
+    private void initShiroKeysFile() {
+        try {
+            File file = new File(shiroKeysFilePath);
+            File parentDir = file.getParentFile();
+            if (parentDir != null && !parentDir.exists()) {
+                if (!parentDir.mkdirs()) {
+                    throw new IOException("无法创建目录: " + parentDir);
+                }
+            }
 
+            if (!file.exists() || file.length() == 0) {
+                List<String> defaultKeys = Arrays.asList(
+                        "kPH+bIxk5D2deZiIxcaaaA==",
+                        "Z3VucwAAAAAAAAAAAAAAAA==",
+                        "MTIzNDU2Nzg5MGFiY2RlZg==",
+                        "U3ByaW5nQmxhZGUAAAAAAA==",
+                        "cGljYXMAAAAAAAAAAAAAAA==",
+                        "d2ViUmVtZW1iZXJNZUtleQ==",
+                        "WkhBTkdYSUFPSEVJX0NBVA==",
+                        "zSyK5Kp6PZAAjlT+eeNMlg==",
+                        "2AvVhdsgUs0FSA3SDFAdag==",
+                        "3AvVhmFLUs0KTA3Kprsdag==",
+                        "4AvVhmFLUs0KTA3Kprsdag==",
+                        "5AvVhmFLUs0KTA3Kprsdag==",
+                        "6AvVhmFLUs0KTA3Kprsdag==",
+                        "7AvVhmFLUs0KTA3Kprsdag==",
+                        "8AvVhmFLUs0KTA3Kprsdag==",
+                        "9AvVhmFLUs0KTA3Kprsdag==",
+                        "bWljcm9zAAAAAAAAAAAAAA==",
+                        "aU1pcmFjbGVpTWlyYWNsZQ==",
+                        "Ymx1ZXdoYWxlAAAAAAAAAA==",
+                        "ZmxvZ19zaGlyb19rZXkAAA==",
+                        "enpyX2Nvb2tpZV9rZXkAAA==",
+                        "bWFveXUtY2hhbgAAAAAAAA=="
+                );
+                try (FileWriter writer = new FileWriter(file)) {
+                    for (String key : defaultKeys) {
+                        writer.write(key + System.lineSeparator());
+                    }
+                }
+        }} catch (IOException e) {
+            System.err.println("初始化Shiro密钥文件失败" + e.getMessage());
+        }
+    }
+
+    // 从密钥文件读取所有密钥
+    private void loadShiroKeys() {
+        try {
+            List<String> keys = Files.readAllLines(Paths.get(shiroKeysFilePath), StandardCharsets.UTF_8)
+                    .stream()
+                    .map(String::trim)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .collect(Collectors.toList());
+            this.shiroKeys = keys;
+        } catch (IOException e) {
+            System.err.println("加载shiro密钥文件失败" + e.getMessage());
+        }
+    }
+    // 外部调用获取密钥列表
+    public List<String> getShiroKeys() {
+        return new ArrayList<>(shiroKeys);
+    }
     // 保存配置到文件
     public void save() {
         try {

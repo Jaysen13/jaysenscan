@@ -137,8 +137,22 @@ public class CheckDnslogResult {
         for (String hitKeyword : hitKeywords) {
             List<HttpRequestResponse> relatedRequests = currentBatch.get(hitKeyword);
             for (HttpRequestResponse req : relatedRequests) {
+                // 判断漏洞类型
+                String vulnName;
+                if (req.request().headerValue("JaySen-FastJson-Scan") != null) {
+                    vulnName = "fastjson反序列化";
+                } else if (req.request().headerValue("JaySen-Log4j-Scan") != null){
+                    vulnName = "log4j反序列化";
+                } else if (req.request().headerValue("JaySen-Shiro550-Scan") != null) {
+                    vulnName = "shiro550反序列化";
+                } else if (req.request().headerValue("JaySen-Shiro721-Scan") != null) {
+                    vulnName = "shiro721反序列化";
+                } else {
+                    vulnName = "fjson/Log4j/shiro550/shiro721";
+                    montoyaApi.logging().logToOutput("fjson/Log4j/shiro550"+req);
+                }
                 // 标记漏洞（例如添加到结果面板）
-                this.mySuiteTab.addRequestInfo(req,"Log4j/fJson");
+                this.mySuiteTab.addRequestInfo(req,vulnName);
                 // 记录日志
                 this.montoyaApi.logging().logToOutput("发现漏洞：" + req.request().url() + "（关键词：" + hitKeyword + "）");
             }
@@ -252,8 +266,8 @@ public class CheckDnslogResult {
             String result = String.format("%s", queryStr);
             collaboratorResults.add(result);
         }
-//        this.montoyaApi.logging().logToOutput("所有CollaboratorClient记录数量: " + collaboratorResults.size());
-//        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
+        this.montoyaApi.logging().logToOutput("所有CollaboratorClient记录数量: " + collaboratorResults.size() + " 当前的域名：" + DnslogConfig.getInstance().collaboratorDomain );
+        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
         return collaboratorResults;
     }
 
