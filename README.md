@@ -70,88 +70,104 @@
 - **ResponseToBeSent**：处理 Burp 到客户端的明文响应（加密）
 
 
-#### 配置步骤
+#### **配置步骤**
 
-1. **插件基础配置**
+##### **插件基础配置**
 
-   - 勾选"启用加解密"
-   - 填写加解密接口地址（例如 `http://127.0.0.1:5000`）
-   - 配置目标域名（二级域名，如 `baidu.com`；`*` 或空表示所有域名）
-   - 点击"保存配置"生效
+- 勾选"启用加解密"
+- 填写加解密接口地址（例如 `http://127.0.0.1:5000`）
+- 配置目标域名（二级域名，如 `baidu.com`；`*` 或空表示所有域名）
+- 点击"保存配置"生效
 
-   ![加解密基础配置](./README.assets/image-20251129152539694-1764415249254-139.png)
+![加解密基础配置](./README.assets/image-20251129152539694-1764415249254-139.png)
 
 
-2. **加解密接口实现**
-   需自行实现 HTTP 服务处理加解密逻辑，提供两个参考文件：
 
-   - `__jaysendata.py`（数据结构定义，无需修改）
+##### 【必看】在burp启动命令中添加参数
 
-   ```python
-   from dataclasses import dataclass
-   from typing import Dict
-   
-   # 请求数据结构
-   @dataclass
-   class JaysenReqData:
-       method: str                  # 请求方法（GET/POST等）
-       paramters: Dict[str, str]    # 请求参数
-       headers: Dict[str, str]      # 请求头
-       body: str                    # 请求体
-   
-   # 响应数据结构
-   @dataclass
-   class JaysenRespData:
-       headers: Dict[str, str]      # 响应头
-       body: str                    # 响应体
-   ```
+由于shiro550生产URLDns链子的需要，需要在启动burp的文件里加一行参数
 
-   - `jaysenscan.py`（HTTP 服务示例，需在指定区域编写加解密逻辑）
+我这里用的是.bat文件
 
-   ```python
-   from flask import Flask, request, jsonify
-   from __jaysendata import JaysenReqData, JaysenRespData
-   app = Flask(__name__)
-   
-   # 客户端→Burp：解密请求
-   @app.route('/RequestReceived', methods=['POST'])
-   def request_received():
-       jaysendata = JaysenReqData(**request.get_json())
-       # ============================编写解密逻辑============================
-       # 示例：jaysendata.body = aes_decrypt(jaysendata.body)
-       # ==================================================================
-       return jsonify(jaysendata)
-   
-   # Burp→服务器：加密请求
-   @app.route('/RequestToBeSent', methods=['POST'])
-   def handle_request():
-       jaysendata = JaysenReqData(** request.get_json())
-       # ============================编写加密逻辑============================
-       # 示例：jaysendata.body = aes_encrypt(jaysendata.body)
-       # ==================================================================
-       return jsonify(jaysendata)
-   
-   # 服务器→Burp：解密响应
-   @app.route('/ResponseReceived', methods=['POST'])
-   def ResponseReceived():
-       jaysendata = JaysenRespData(**request.get_json())
-       # ============================编写解密逻辑============================
-       # ==================================================================
-       return jsonify(jaysendata)
-   
-   # Burp→客户端：加密响应
-   @app.route('/ResponseToBeSent', methods=['POST'])
-   def ResponseToBeSent():
-       jaysendata = JaysenRespData(** request.get_json())
-       # ============================编写加密逻辑============================
-       # ==================================================================
-       return jsonify(jaysendata)
-   
-   if __name__ == '__main__':
-       app.run(host='127.0.0.1', port=5000, debug=True)
-   ```
+![image-20260520173532529](./README.assets/image-20260520173532529.png)
 
-   > 提示：仅需在 `#=================` 标记区域编写加解密逻辑，任意语言都可以，只要能这四个接口
+打开文件在-jar前添加参数（注意前后各一个空格） `--add-opens java.base/java.net=ALL-UNNAMED` 
+
+![image-20260520173633267](./README.assets/image-20260520173633267.png)
+
+添加完成即可完美渗透shiro550/弱密钥了
+
+##### **加解密接口实现**
+
+需自行实现 HTTP 服务处理加解密逻辑，提供两个参考文件：
+
+- `__jaysendata.py`（数据结构定义，无需修改）
+
+```python
+from dataclasses import dataclass
+from typing import Dict
+
+# 请求数据结构
+@dataclass
+class JaysenReqData:
+    method: str                  # 请求方法（GET/POST等）
+    paramters: Dict[str, str]    # 请求参数
+    headers: Dict[str, str]      # 请求头
+    body: str                    # 请求体
+
+# 响应数据结构
+@dataclass
+class JaysenRespData:
+    headers: Dict[str, str]      # 响应头
+    body: str                    # 响应体
+```
+
+- `jaysenscan.py`（HTTP 服务示例，需在指定区域编写加解密逻辑）
+
+```python
+from flask import Flask, request, jsonify
+from __jaysendata import JaysenReqData, JaysenRespData
+app = Flask(__name__)
+
+# 客户端→Burp：解密请求
+@app.route('/RequestReceived', methods=['POST'])
+def request_received():
+    jaysendata = JaysenReqData(**request.get_json())
+    # ============================编写解密逻辑============================
+    # 示例：jaysendata.body = aes_decrypt(jaysendata.body)
+    # ==================================================================
+    return jsonify(jaysendata)
+
+# Burp→服务器：加密请求
+@app.route('/RequestToBeSent', methods=['POST'])
+def handle_request():
+    jaysendata = JaysenReqData(** request.get_json())
+    # ============================编写加密逻辑============================
+    # 示例：jaysendata.body = aes_encrypt(jaysendata.body)
+    # ==================================================================
+    return jsonify(jaysendata)
+
+# 服务器→Burp：解密响应
+@app.route('/ResponseReceived', methods=['POST'])
+def ResponseReceived():
+    jaysendata = JaysenRespData(**request.get_json())
+    # ============================编写解密逻辑============================
+    # ==================================================================
+    return jsonify(jaysendata)
+
+# Burp→客户端：加密响应
+@app.route('/ResponseToBeSent', methods=['POST'])
+def ResponseToBeSent():
+    jaysendata = JaysenRespData(** request.get_json())
+    # ============================编写加密逻辑============================
+    # ==================================================================
+    return jsonify(jaysendata)
+
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5000, debug=True)
+```
+
+> 提示：仅需在 `#=================` 标记区域编写加解密逻辑，任意语言都可以，只要能这四个接口
 
 
 ### 漏洞扫描
