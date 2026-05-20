@@ -280,7 +280,9 @@ shiro550找到的若密钥会标注在头内，方便后续使用工具找链利
 - **Q：后续漏洞检测模块还会扩展吗？**  
   A：会的，师傅们可以留言
 
+## 致谢
 
+- [Galaxy](https://github.com/outlaws-bai/Galaxy) — 本项目加解密流量劫持与自动加解密的实现思路参考了 Galaxy 项目的 Hook 机制，在此感谢 [outlaws-bai](https://github.com/outlaws-bai) 的开源贡献。
 
 ## 作者与反馈
 
