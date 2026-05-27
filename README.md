@@ -1,358 +1,357 @@
 # JaySenScan
 
-一款基于 Burp Suite 2025.8 API 开发的插件，集成高危漏洞检测与接口加解密能力，专注于提升 Web 安全渗透测试的效率与灵活性。
+A Burp Suite plugin built on the 2025.8 Montoya API, integrating high-risk vulnerability detection with request/response encryption & decryption — designed to boost efficiency and flexibility in web security penetration testing.
+
+[![Downloads](https://img.shields.io/github/downloads/jaysen13/jaysenscan/total.svg)](https://github.com/jaysen13/jaysenscan/releases)
 
 
-## 开发背景
+## Motivation
 
-在渗透测试过程中，您是否常遇到这些痛点？
+Do these pain points sound familiar during your pentests?
 
-- 目标 HTTP 流量加密，存在签名校验、参数加密等复杂场景
-- 希望在 Repeater/Intruder 模块用明文编辑加密数据包
-- 需要精准指定漏洞扫描的目标域名，避免误扫
-- 加密环境下，扫描 payload 需自动加密后才能生效
-- 无法直接使用 sqlmap、xray 等工具扫描加密目标
-- 插件过多导致 Burp 运行卡顿，需要轻量化解决方案
-- 需留存漏扫记录以便后续查询与复盘
+- Target HTTP traffic is encrypted — signature verification, parameter encryption, and other complex scenarios
+- You want to edit encrypted packets in plaintext within Repeater / Intruder
+- You need precise control over which domains to scan, avoiding unintended targets
+- In encrypted environments, scan payloads must be automatically encrypted before they take effect
+- Tools like sqlmap and xray can't directly scan encrypted targets
+- Too many plugins make Burp sluggish — you need a lightweight solution
+- You need to retain scan logs for later review and analysis
 
-针对以上问题，JaySenScan 应运而生，将流量加解密与漏洞扫描功能集成一体，简化加密环境下的渗透测试流程。
-
-
-## 核心功能
-
-### 🔑 自动化加解密
-
-- 全模块支持：覆盖 Burp Proxy/Repeater/Intruder 等所有模块
-- 自定义接口：通过 HTTP 接口实现灵活的加解密逻辑
-- 无缝体验：明文编辑、加密传输，无需手动转换
-
-### 🔍 高危漏洞扫描
-
-- 内置检测：支持 Fastjson 反序列化、Log4j 反序列化、Spring 接口未授权访问、Shiro 反序列化（550/721）、Shiro 权限绕过
-- 智能适配：加密环境下自动对 payload 进行加密处理
-- 防重机制：5 分钟内避免重复扫描同一目标，减少冗余请求
-
-### 🔗 安全工具联动
-
-- 兼容主流工具：与 sqlmap、xray 等无缝对接
-- 解决加密障碍：工具发送的 payload 经插件自动加密后发送
-
-## 加解密功能演示
-
-### 自动加解密
-
-![自动加解密](./README.assets/自动加解密.gif)
-
-### 联动sqlmap
-
-![联动sqlmap](./README.assets/联动sqlmap.gif)
-
-## 使用指南（首次使用必读）
-
-### 自动加解密
-
-#### 原理说明
-
-数据包在 Burp 中的流转流程如下：
-
-1. 客户端 → Burp（加密请求）
-2. Burp → 服务器（加密请求）
-3. 服务器 → Burp（加密响应）
-4. Burp → 客户端（加密响应）
-
-![数据包流转流程](./README.assets/image-20251129155440108-1764415249254-135.png)
-
-插件通过 hook 以上 4 个节点实现自动化加解密：
-
-- **RequestReceived**：处理客户端到 Burp 的加密请求（解密）
-- **RequestToBeSent**：处理 Burp 到服务器的明文请求（加密）
-- **ResponseReceived**：处理服务器到 Burp 的加密响应（解密）
-- **ResponseToBeSent**：处理 Burp 到客户端的明文响应（加密）
+JaySenScan was built to solve all of the above — combining traffic encryption/decryption with vulnerability scanning in a single plugin, streamlining pentesting workflows in encrypted environments.
 
 
-#### **配置步骤**
+## Core Features
 
-##### **插件基础配置**
+### 🔑 Automatic Encryption / Decryption
 
-- 勾选"启用加解密"
-- 填写加解密接口地址（例如 `http://127.0.0.1:5000`）
-- 配置目标域名（二级域名，如 `baidu.com`；`*` 或空表示所有域名）
-- 点击"保存配置"生效
+- Full module support: covers all Burp modules (Proxy, Repeater, Intruder, etc.)
+- Customizable interface: flexible encryption/decryption logic via HTTP API
+- Seamless experience: edit in plaintext, transmit encrypted — no manual conversion
 
-![image-20260521083516403](./README.assets/image-20260521083516403.png)
+### 🔍 High-Risk Vulnerability Scanning
+
+- Built-in detection: Fastjson deserialization, Log4j deserialization, Spring endpoint unauthorized access, Shiro deserialization (550/721), Shiro authorization bypass
+- Smart adaptation: payloads are automatically encrypted before sending in encrypted environments
+- Deduplication: avoids scanning the same target repeatedly within 5 minutes
+
+### 🔗 Security Tool Integration
+
+- Mainstream tool compatibility: seamless integration with sqlmap, xray, and more
+- Encryption barrier removed: payloads sent by external tools are automatically encrypted by the plugin
 
 
+## Demo
 
-##### 【必看】在burp启动命令中添加参数
+### Auto Encryption / Decryption
 
-由于shiro550生产URLDns链子的需要，需要在启动burp的文件里加一行参数
+![Auto Encryption/Decryption](./README.assets/自动加解密.gif)
 
-我这里用的是.bat文件
+### Integration with sqlmap
 
-![image-20260520173532529](./README.assets/image-20260520173532529.png)
+![sqlmap Integration](./README.assets/联动sqlmap.gif)
 
-打开文件在-jar前添加参数（注意前后各一个空格） `--add-opens java.base/java.net=ALL-UNNAMED` 
 
-![image-20260520173633267](./README.assets/image-20260520173633267.png)
+## Getting Started (First-Time Users Must Read)
 
-添加完成即可完美渗透shiro550/弱密钥了
+### Encryption / Decryption
 
-##### **加解密接口实现**
+#### How It Works
 
-需自行实现 HTTP 服务处理加解密逻辑，提供两个参考文件：
+Packet flow within Burp:
 
-- `__jaysendata.py`（数据结构定义，无需修改）
+1. Client → Burp (encrypted request)
+2. Burp → Server (encrypted request)
+3. Server → Burp (encrypted response)
+4. Burp → Client (encrypted response)
+
+![Packet Flow](./README.assets/image-20251129155440108-1764415249254-135.png)
+
+The plugin hooks these 4 points to achieve automatic encryption/decryption:
+
+- **RequestReceived**: handles the encrypted request from client to Burp (decrypt)
+- **RequestToBeSent**: handles the plaintext request from Burp to server (encrypt)
+- **ResponseReceived**: handles the encrypted response from server to Burp (decrypt)
+- **ResponseToBeSent**: handles the plaintext response from Burp to client (encrypt)
+
+
+#### Configuration Steps
+
+##### Basic Plugin Configuration
+
+- Check "Enable Encryption/Decryption"
+- Enter the encryption/decryption API endpoint (e.g. `http://127.0.0.1:5000`)
+- Configure the target domain (second-level domain, e.g. `baidu.com`; `*` or empty means all domains)
+- Click "Save Configuration" to apply
+
+![Basic Configuration](./README.assets/image-20260521083516403.png)
+
+
+##### ⚠️ Required: Add JVM Parameter to Burp Startup Command
+
+Shiro550 URLDNS chain construction requires adding a parameter to the Burp startup command.
+
+Using a `.bat` file as an example:
+
+![Bat File](./README.assets/image-20260520173532529.png)
+
+Add the following parameter **before** `-jar` (note: a space before and after):
+
+```
+--add-opens java.base/java.net=ALL-UNNAMED
+```
+
+![Add Parameter](./README.assets/image-20260520173633267.png)
+
+Once added, Shiro550 / weak-key exploitation will work correctly.
+
+##### Implementing the Encryption/Decryption API
+
+You need to implement an HTTP service for encryption/decryption logic. Two reference files are provided:
+
+- `__jaysendata.py` (data structure definitions, no modification needed)
 
 ```python
 from dataclasses import dataclass
 from typing import Dict
 
-# 请求数据结构
+# Request data structure
 @dataclass
 class JaysenReqData:
-    method: str                  # 请求方法（GET/POST等）
-    paramters: Dict[str, str]    # 请求参数
-    headers: Dict[str, str]      # 请求头
-    body: str                    # 请求体
+    method: str                  # Request method (GET/POST, etc.)
+    paramters: Dict[str, str]    # Request parameters
+    headers: Dict[str, str]      # Request headers
+    body: str                    # Request body
 
-# 响应数据结构
+# Response data structure
 @dataclass
 class JaysenRespData:
-    headers: Dict[str, str]      # 响应头
-    body: str                    # 响应体
+    headers: Dict[str, str]      # Response headers
+    body: str                    # Response body
 ```
 
-- `jaysenscan.py`（HTTP 服务示例，需在指定区域编写加解密逻辑）
+- `jaysenscan.py` (HTTP service template — fill in your encryption/decryption logic in the designated areas)
 
 ```python
 from flask import Flask, request, jsonify
 from __jaysendata import JaysenReqData, JaysenRespData
 app = Flask(__name__)
 
-# 客户端→Burp：解密请求
+# Client → Burp: decrypt request
 @app.route('/RequestReceived', methods=['POST'])
 def request_received():
     jaysendata = JaysenReqData(**request.get_json())
-    # ============================编写解密逻辑============================
-    # 示例：jaysendata.body = aes_decrypt(jaysendata.body)
-    # ==================================================================
+    # ==================== Write decryption logic here ====================
+    # Example: jaysendata.body = aes_decrypt(jaysendata.body)
+    # ====================================================================
     return jsonify(jaysendata)
 
-# Burp→服务器：加密请求
+# Burp → Server: encrypt request
 @app.route('/RequestToBeSent', methods=['POST'])
 def handle_request():
-    jaysendata = JaysenReqData(** request.get_json())
-    # ============================编写加密逻辑============================
-    # 示例：jaysendata.body = aes_encrypt(jaysendata.body)
-    # ==================================================================
+    jaysendata = JaysenReqData(**request.get_json())
+    # ==================== Write encryption logic here ====================
+    # Example: jaysendata.body = aes_encrypt(jaysendata.body)
+    # ====================================================================
     return jsonify(jaysendata)
 
-# 服务器→Burp：解密响应
+# Server → Burp: decrypt response
 @app.route('/ResponseReceived', methods=['POST'])
 def ResponseReceived():
     jaysendata = JaysenRespData(**request.get_json())
-    # ============================编写解密逻辑============================
-    # ==================================================================
+    # ==================== Write decryption logic here ====================
+    # ====================================================================
     return jsonify(jaysendata)
 
-# Burp→客户端：加密响应
+# Burp → Client: encrypt response
 @app.route('/ResponseToBeSent', methods=['POST'])
 def ResponseToBeSent():
-    jaysendata = JaysenRespData(** request.get_json())
-    # ============================编写加密逻辑============================
-    # ==================================================================
+    jaysendata = JaysenRespData(**request.get_json())
+    # ==================== Write encryption logic here ====================
+    # ====================================================================
     return jsonify(jaysendata)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)
 ```
 
-> 提示：仅需在 `#=================` 标记区域编写加解密逻辑，任意语言都可以，只要能这四个接口
+> Tip: You only need to write logic inside the `#===============` blocks. Any programming language works, as long as these four endpoints are implemented.
 
 
-### 漏洞扫描
+### Vulnerability Scanning
 
-#### 基础配置
+#### Basic Configuration
 
-1. 配置 DNSlog 服务（支持 Burp Collaborator 或 CEYE）
-   - 专业版 Burp 可使用 Collaborator（需点击"自动生成域名"）
-   - 社区版需使用 CEYE 并填写 API 信息
-2. 勾选需要启用的漏洞扫描类型（Fastjson / Log4j / Spring / Shiro）
-3. 点击"保存配置"
+1. Configure DNSLog service (supports Burp Collaborator or CEYE)
+   - Burp Professional can use Collaborator (click "Auto-Generate Domain")
+   - Burp Community Edition requires CEYE with API credentials
+2. Select the vulnerability scan types to enable (Fastjson / Log4j / Spring / Shiro)
+3. Click "Save Configuration"
 
-![image-20260520161533825](./README.assets/image-20260520161533825.png)
-<img src="./README.assets/image-20260520161625096.png" alt="image-20260520161625096" style="zoom: 67%;" />
+![Scan Configuration](./README.assets/image-20260520161533825.png)
+<img src="./README.assets/image-20260520161625096.png" alt="DNSLog Config" style="zoom: 67%;" />
 
-然后在Spring目录扫描配置框内有两个框，分别是**过滤后缀名**、**过滤关键词**
+The Spring directory scan configuration panel contains two fields: **File Extension Filter** and **Keyword Filter**.
 
-【！！！】意思就是这个插件的加解密功能、漏扫功能都不会经过指定的后缀名/关键词
-
-
-#### Spring 接口扫描
-
-1. 配置扫描触发条件：路径包含指定关键词时执行扫描
-2. 扫描路径文件：默认路径为 `C:\Users\$USER\.burp\springapiscan.txt`（内置常用路径）
-3. 递归扫描：例如 `/api/a/b/c` 会触发 `/api/a/b/c`、`/api/a/b`、`/api/a`、`/api`、`/` 的扫描
-4. 防重机制：5 分钟内不重复扫描同一路径
-
-![image-20260520161734228](./README.assets/image-20260520161734228.png)
-![扫描路径文件示例](./README.assets/image-20251129161538373-1764415249254-141.png)
+> ⚠️ Both the encryption/decryption feature and the vulnerability scanner will skip traffic matching the specified file extensions or keywords.
 
 
+#### Spring Endpoint Scanning
+
+1. Configure scan trigger conditions: scanning kicks in when the request path contains specified keywords
+2. Scan path file: default path is `C:\Users\$USER\.burp\springapiscan.txt` (pre-populated with common paths)
+3. Recursive scanning: e.g. `/api/a/b/c` triggers scans on `/api/a/b/c`, `/api/a/b`, `/api/a`, `/api`, `/`
+4. Deduplication: avoids scanning the same path within 5 minutes
+
+![Spring Scan](./README.assets/image-20260520161734228.png)
+![Path File Example](./README.assets/image-20251129161538373-1764415249254-141.png)
 
 
-## 实战示例
+## Real-World Examples
 
-提供专用靶场 [jaysenscandemo](https://github.com/Jaysen13/jaysenscandemo)，内置 5 个典型漏洞场景，帮助快速掌握插件使用。
+A dedicated testbed is available: [jaysenscandemo](https://github.com/Jaysen13/jaysenscandemo) — includes 5 typical vulnerability scenarios to quickly master the plugin.
 
-![靶场漏洞场景](./README.assets/image-20251129163117132-1764415249254-137.png)
-
-
-### 1. AES 加密的 Fastjson 漏洞检测
-
-1. 启动靶场配套的 `Aes_FastJson.py` 加解密服务
-2. 插件配置接口地址为 `http://127.0.0.1:5000`
-3. 发送测试请求，Burp 自动解密显示明文
-4. 插件自动生成加密后的检测 payload，通过 DNSlog 验证漏洞
-
-![image-20260520162637951](./README.assets/image-20260520162637951.png)
-
-插件自动先将json数据替换为payload再按照我们指定好的加密后发送，dns接收到该次请求即可在扫描结果处看到
-
-![image-20260520170034623](./README.assets/image-20260520170034623.png)
+![Testbed Scenarios](./README.assets/image-20251129163117132-1764415249254-137.png)
 
 
-### 2. AES 加密的 Log4j 漏洞检测
+### 1. Fastjson Detection with AES Encryption
 
-1. 启动 `Aes_Log4j.py` 加解密服务
-2. 发送含触发字符的请求，插件自动解密
-3. 插件生成加密后的 Log4j payload 进行检测
-4. 通过 DNSlog 监控命中情况确认漏洞
+1. Start the testbed's `Aes_FastJson.py` encryption/decryption service
+2. Configure the plugin API endpoint to `http://127.0.0.1:5000`
+3. Send a test request — Burp automatically decrypts and displays it in plaintext
+4. The plugin generates an encrypted detection payload and verifies the vulnerability via DNSLog
 
-![image-20260520165956203](./README.assets/image-20260520165956203.png)
+![Fastjson Detection](./README.assets/image-20260520162637951.png)
 
-可以看见：log4j的payload自动加入post请求体参数内加密后传输加密，dns接收到该次请求即可在扫描结果处看到
+The plugin replaces the JSON data with the payload, encrypts it according to your specified logic, and sends it. Once the DNS request is captured, the result appears in the scan panel.
 
-![image-20260520171134629](./README.assets/image-20260520171134629.png)
+![Fastjson Result](./README.assets/image-20260520170034623.png)
 
 
-### 3. 联动 sqlmap 检测加密 SQL 注入
+### 2. Log4j Detection with AES Encryption
 
-1. 启动 `Aes_Sql.py` 加解密服务
+1. Start the `Aes_Log4j.py` encryption/decryption service
+2. Send a request containing trigger characters — the plugin automatically decrypts it
+3. The plugin generates an encrypted Log4j payload for detection
+4. Vulnerability is confirmed via DNSLog callback monitoring
 
-2. 抓取登录请求，获取解密后的明文数据
+![Log4j Detection](./README.assets/image-20260520165956203.png)
 
-3. 将明文请求保存为 `data.txt`，通过 Burp 代理启动 sqlmap：
+As shown: the Log4j payload is automatically injected into POST parameters, encrypted, and transmitted. The DNS callback confirms the vulnerability in the results panel.
+
+![Log4j Result](./README.assets/image-20260520171134629.png)
+
+
+### 3. SQL Injection Detection with sqlmap Integration
+
+1. Start the `Aes_Sql.py` encryption/decryption service
+
+2. Capture a login request and obtain the decrypted plaintext data
+
+3. Save the plaintext request as `data.txt` and launch sqlmap through the Burp proxy:
 
    ```shell
    python sqlmap.py -r data.txt --proxy=http://127.0.0.1:8080
    ```
 
-4. sqlmap 发送的 payload 经插件自动加密，成功检测出注入点
+4. sqlmap's payloads are automatically encrypted by the plugin, successfully detecting injection points
 
-![SQL 注入联动效果](./README.assets/image-20251129170217229-1764415249254-145.png)
-
-### 4. Shiro 反序列化与权限绕过检测
-
-#### Shiro550 检测
-
-1. 确保已配置 DNSLog 服务（Collaborator 或 CEYE）
-2. 插件在识别到目标为 Shiro 框架后，自动遍历内置的 shiro_keys 字典（存储于 `~/.burp/shirokeys.txt`）
-3. 通过构造加密的 URLDNS 载荷发送请求，DNSLog 平台收到回显即确认漏洞
-
-#### Shiro721 检测
-
-1. 前提：目标请求中需已有合法的 `rememberMe` cookie（用户已登录）
-2. 插件篡改密文末尾字节，通过 `Set-Cookie: rememberMe=deleteMe` 响应判断 Padding Oracle 是否存在
-3. 在无密钥情况下，利用 Padding Oracle 通道即可解密/重加密，最终达到反序列化 RCE
-
-#### Shiro 权限绕过
-
-1. 插件自动构造绕过 Payload（如 `/..;/`、`/;/`、`/%20/` 等）
-2. 通过与原始请求的响应差异对比，识别权限绕过漏洞
-
-> shiro550 找到的密钥会标注在请求头 `JaySen-shiroKey` 中，方便后续使用工具找链利用
-
-![image-20260520161340223](./README.assets/image-20260520161340223.png)
-
-### 5. Spring 接口未授权访问检测
-
-1. 在`Spring目录扫描配置`中配置过滤后缀名和关键词，避免对静态资源发起扫描
-2. 插件从 `~/.burp/springapiscan.txt` 加载常见的 Spring 接口路径（如 `/actuator`、`/swagger-ui.html`、`/druid/`、`/doc.html` 等）
-3. 递归扫描：从当前路径逐层向上拼接 Payload，如 `/api/user/list` 会依次扫描 `/api/user/list/actuator` → `/api/user/actuator` → `/api/actuator` → `/actuator`
-4. 命中时自动标记为 "Spring未授权访问"
-
-![image-20260520161734228](./README.assets/image-20260520161734228.png)
-![扫描路径文件示例](./README.assets/image-20251129161538373-1764415249254-141.png)
+![SQL Injection Integration](./README.assets/image-20251129170217229-1764415249254-145.png)
 
 
-## 实用技巧
+### 4. Shiro Deserialization & Authorization Bypass
 
-- 开启 Burp "显示编辑后的数据"选项，直接查看解密内容（如图）
-  ![Burp 显示设置](./README.assets/image-20251129163738709-1764415249254-146.png)
-- 加解密接口支持 Java/Go/Node.js 等任意语言，只需保持 JSON 格式一致
-- 扫描记录自动留存，可在插件历史面板查询
+#### Shiro550 Detection
+
+1. Ensure DNSLog is configured (Collaborator or CEYE)
+2. When the plugin identifies a target as a Shiro framework, it automatically iterates through the built-in shiro_keys dictionary (stored at `~/.burp/shirokeys.txt`)
+3. Encrypted URLDNS payloads are constructed and sent — a DNSLog callback confirms the vulnerability
+
+#### Shiro721 Detection
+
+1. Prerequisite: the target request must already contain a valid `rememberMe` cookie (user is logged in)
+2. The plugin tampers with the last bytes of the ciphertext, checking for `Set-Cookie: rememberMe=deleteMe` to confirm the Padding Oracle
+3. Without the encryption key, the Padding Oracle channel can be leveraged to decrypt/re-encrypt, ultimately achieving deserialization RCE
+
+#### Shiro Authorization Bypass
+
+1. The plugin automatically constructs bypass payloads (e.g. `/..;/`, `/;/`, `/%20/`, etc.)
+2. Compares response differences against the original request to identify authorization bypass vulnerabilities
+
+> Found Shiro550 keys are annotated in the `JaySen-shiroKey` request header for follow-up exploitation with other tools.
+
+![Shiro Detection](./README.assets/image-20260520161340223.png)
 
 
+### 5. Spring Endpoint Unauthorized Access Detection
+
+1. Configure file extension and keyword filters in the "Spring Directory Scan Config" panel to avoid scanning static resources
+2. The plugin loads common Spring endpoint paths from `~/.burp/springapiscan.txt` (e.g. `/actuator`, `/swagger-ui.html`, `/druid/`, `/doc.html`, etc.)
+3. Recursive scanning: starting from the current path, payloads are appended layer by layer, e.g. `/api/user/list` triggers `/api/user/list/actuator` → `/api/user/actuator` → `/api/actuator` → `/actuator`
+4. Hits are automatically tagged as "Spring Unauthorized Access"
+
+![Spring Scan](./README.assets/image-20260520161734228.png)
+![Path File Example](./README.assets/image-20251129161538373-1764415249254-141.png)
 
 
-## 常见问题
+## Tips & Tricks
 
-- **Q：加解密接口必须用 Python 吗？**  
-  A：不需要，支持任何语言，只要实现相同的 HTTP 接口即可。
+- Enable Burp's "Show edited data" option to view decrypted content directly (see screenshot)
+  ![Burp Display Setting](./README.assets/image-20251129163738709-1764415249254-146.png)
+- The encryption/decryption API supports any language — Java, Go, Node.js, etc. — just keep the JSON structure consistent
+- Scan records are automatically retained and can be reviewed in the plugin's history panel
 
-- **Q：社区版 Burp 能否使用？**  
-  A：可以，但不支持 Burp Collaborator，需配置 CEYE 作为 DNSlog 服务。
 
-- **Q：加解密接口返回错误怎么办？**  
-  A：检查接口地址是否正确、服务是否启动；查看 Burp Output 日志排查具体错误信息。
+## FAQ
 
-- **Q：为什么 Shiro550 扫描没有结果？**  
-  A：确认三件事：① 已配置 DNSLog 服务；② Burp 启动命令已添加 `--add-opens java.base/java.net=ALL-UNNAMED` 参数；③ 密钥文件 `~/.burp/shirokeys.txt` 存在且内容非空。
+- **Q: Does the encryption/decryption API have to be Python?**  
+  A: No. Any language works as long as the same HTTP interface is implemented.
 
-- **Q：为什么 Shiro721 扫描没有触发？**  
-  A：721 检测需要请求中已有合法的 `rememberMe` cookie（用户已登录），无 cookie 时会自动跳过。
+- **Q: Can I use Burp Community Edition?**  
+  A: Yes, but Collaborator is not supported. Configure CEYE as the DNSLog service instead.
 
-- **Q：后续漏洞检测模块还会扩展吗？**  
-  A：会的，师傅们可以留言
+- **Q: What if the encryption/decryption API returns an error?**  
+  A: Verify the API endpoint is correct and the service is running. Check the Burp Output log for specific error details.
 
-## 致谢
+- **Q: Why isn't Shiro550 scanning producing any results?**  
+  A: Confirm three things: ① DNSLog is configured; ② `--add-opens java.base/java.net=ALL-UNNAMED` is added to the Burp startup command; ③ `~/.burp/shirokeys.txt` exists and is not empty.
 
-- [Galaxy](https://github.com/outlaws-bai/Galaxy) — 本项目加解密流量劫持与自动加解密的实现思路参考了 Galaxy 项目的 Hook 机制，在此感谢 [outlaws-bai](https://github.com/outlaws-bai) 的开源贡献。
+- **Q: Why isn't Shiro721 scanning triggering?**  
+  A: Shiro721 detection requires a valid `rememberMe` cookie in the request (i.e. the user is logged in). It skips automatically if no cookie is present.
 
-## 作者与反馈
+- **Q: Will more vulnerability detection modules be added?**  
+  A: Yes — the plugin is under active development. Feel free to leave suggestions!
 
-### 👨‍💻 作者信息
 
-- 作者：JaySen
+## Acknowledgments
 
-- 邮箱：3147330392@qq.com
+- [Galaxy](https://github.com/outlaws-bai/Galaxy) — The encryption/decryption traffic hooking and automatic encryption/decryption implementation in this project was inspired by Galaxy's hook mechanism. Thanks to [outlaws-bai](https://github.com/outlaws-bai) for open-sourcing it.
 
-- GitHub：[Jaysen13/JaySenScan](https://github.com/Jaysen13/JaySenScan)
 
-- 微信公众号：**凌霜雁安全志**
+## Author & Feedback
 
-  后续公众号会不定期分享网络安全类知识和工具推荐，欢迎关注~
+### 👨‍💻 Author
 
-<img src="./README.assets/image-20260520171623863.png" alt="image-20260520171623863" style="zoom:33%;" />
+- Author: JaySen
+- Email: 3147330392@qq.com
+- GitHub: [Jaysen13/JaySenScan](https://github.com/Jaysen13/JaySenScan)
 
-### 📬 反馈与贡献
+### 📬 Feedback & Contributions
 
-- 若遇到 Bug 或有功能建议，欢迎提交 GitHub Issue
-- 插件持续迭代中，后续将支持更多漏洞类型检测
+- If you encounter bugs or have feature suggestions, feel free to submit a GitHub Issue
+- The plugin is under continuous iteration — more vulnerability types will be supported in the future
 
-### 📄 许可证
+### 📄 License
 
-本项目基于 CC BY-NC-SA 4.0 许可证开源：允许非商业使用、修改、分发（需保留原作者声明），**禁止任何形式的商业售卖**（含二开版本）。
+This project is open-sourced under the CC BY-NC-SA 4.0 license: non-commercial use, modification, and redistribution are allowed (with attribution), **commercial sales of any kind are strictly prohibited** (including derivative works).
 
-⭐ Star 历史趋势
 
- 如果这个项目对你有帮助，欢迎点亮 Star 支持一下！ 您的start，我的动力
+⭐ Star History
 
-<img src="./README.assets/image-20260520171657363.png" alt="image-20260520171657363" style="zoom:50%;" />
+If this project helps you, a Star would be greatly appreciated! Your support keeps me motivated.
+
+<img src="./README.assets/image-20260520171657363.png" alt="Star" style="zoom:50%;" />
 
 <a href="https://www.star-history.com/?repos=Jaysen13%2Fjaysenscan&type=date&legend=top-left">
-
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Jaysen13/jaysenscan&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Jaysen13/jaysenscan&type=date&legend=top-left" />
