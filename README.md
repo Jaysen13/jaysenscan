@@ -1,5 +1,7 @@
 # JaySenScan
 
+[🇺🇸 English](README.md) | [🇨🇳 简体中文](README_CN.md)
+
 A Burp Suite plugin built on the 2025.8 Montoya API, integrating high-risk vulnerability detection with request/response encryption & decryption — designed to boost efficiency and flexibility in web security penetration testing.
 
 [![Downloads](https://img.shields.io/github/downloads/jaysen13/jaysenscan/total.svg)](https://github.com/jaysen13/jaysenscan/releases)

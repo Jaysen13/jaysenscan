@@ -1,5 +1,7 @@
 # JaySenScan
 
+[🇺🇸 English](README.md) | [🇨🇳 简体中文](README_CN.md)
+
 一款基于 Burp Suite 2025.8 API 开发的插件，集成高危漏洞检测与接口加解密能力，专注于提升 Web 安全渗透测试的效率与灵活性。
 
 [![Downloads](https://img.shields.io/github/downloads/jaysen13/jaysenscan/total.svg)](https://github.com/jaysen13/jaysenscan/releases)
