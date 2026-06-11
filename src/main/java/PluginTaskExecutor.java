@@ -71,11 +71,13 @@ public class PluginTaskExecutor {
                 try {
                     task.run();
                 } catch (Exception e) {
-                    montoyaApi.logging().logToError("任务异常: " + e.getMessage());
+                    montoyaApi.logging().logToOutput("[ERROR] 任务异常: " + e.getMessage());
+                    montoyaApi.logging().logToError("[ERROR] 任务异常: " + e.getMessage());
                 }
             });
         } catch (Exception e) {
-            montoyaApi.logging().logToError("提交任务失败: " + e.getMessage());
+            montoyaApi.logging().logToOutput("[ERROR] 提交任务失败: " + e.getMessage());
+            montoyaApi.logging().logToError("[ERROR] 提交任务失败: " + e.getMessage());
         }
     }
 
@@ -151,7 +153,7 @@ public class PluginTaskExecutor {
             } catch (InterruptedException e) {
                 executor.shutdownNow();
             }
-            montoyaApi.logging().logToOutput("线程池已关闭，完成任务：" + executor.getCompletedTaskCount());
+            montoyaApi.logging().logToOutput("[INFO] 线程池已关闭，完成任务：" + executor.getCompletedTaskCount());
         }
     }
 }

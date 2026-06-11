@@ -47,6 +47,7 @@ public class DnslogConfig {
 
     // 扫描选项
     public boolean fastJsonScanEnabled = true; // 默认启用 FastJson 扫描
+    public boolean jacksonScanEnabled = true;  // 默认启用 Jackson 扫描
     public boolean log4jScanEnabled = true;    // 默认启用 Log4j 扫描
     public boolean springScanEnabled = true;   // 默认启用 Spring 扫描
     public boolean shiroScanEnabled = true;    // 默认启用 Shiro 扫描

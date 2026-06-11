@@ -65,6 +65,7 @@ public class Scan {
         String topDomain1 = "fjson";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
+            this.montoyaApi.logging().logToOutput("[INFO] 正在FastJson扫描 TargetURL: " + request.url());
             String timestamp = String.valueOf(System.currentTimeMillis());
             Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
             // 解析Config类中的fastjsonPayload为JSONArray
@@ -83,13 +84,12 @@ public class Scan {
                     } else if (payloadObj instanceof JSONArray) {
                         payloadStr = ((JSONArray) payloadObj).toJSONString(); // 数组类型直接序列化
                     } else {
-                        this.montoyaApi.logging().logToOutput("Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
+                        this.montoyaApi.logging().logToOutput("[INFO] Payload[" + (i + 1) + "] 不是 JSON 对象/数组，跳过");
                         continue;
                     }
-//                        this.montoyaApi.logging().logToOutput("[DEBUG]payload: " + payloadStr);
-                    // 根据JSON数据来源位置，替换对应的部分
-                    HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr);
-                    // 添加标记头
+                    // 将内部的旧topDomain2替换为新topDomain2
+                    String newtopDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+                    HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr.replace(topDomain2, newtopDomain2));
                     modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan","true");
                     // 发送修改后的请求
                     HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
@@ -97,14 +97,14 @@ public class Scan {
                         // 加入已发送请求的存储日志中
                         saveLogFile.addToBatch(attackReqResp);
                     }
-                    // 不立即检查DNSLOG，而是添加到批量缓存
-                    CheckDnslogResult.getInstance().addToBatch(topDomain2, attackReqResp);
+                    CheckDnslogResult.getInstance().addToBatch(newtopDomain2, attackReqResp);
 
                 }
             }
         }
         catch (Exception e) {
-            this.montoyaApi.logging().logToError("FastJSON扫描过程出错：" + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] FastJSON扫描过程出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] FastJSON扫描过程出错：" + e.getMessage());
         }
     }
 
@@ -113,9 +113,10 @@ public class Scan {
         String topDomain1 = "fjson";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
+            this.montoyaApi.logging().logToOutput("[INFO] 正在批量FastJson扫描，共" + requests.size() + "个请求");
             // 边界检查：确保请求列表和JSON数据列表的长度一致
             if (requests.size() != rawDatass.size()) {
-                this.montoyaApi.logging().logToError("请求数量与JSON数据列表数量不匹配，终止扫描");
+                this.montoyaApi.logging().logToError("[ERROR] 请求数量与JSON数据列表数量不匹配，终止扫描");
                 return;
             }
 
@@ -131,7 +132,7 @@ public class Scan {
 
                 // 若当前请求无JSON数据，跳过
                 if (rawDatas == null || rawDatas.isEmpty()) {
-                    this.montoyaApi.logging().logToOutput("请求[" + i + "]无JSON数据，跳过扫描");
+                    this.montoyaApi.logging().logToOutput("[INFO] 请求[" + i + "]无JSON数据，跳过扫描");
                     continue;
                 }
 
@@ -142,26 +143,25 @@ public class Scan {
                         JSONObject payload = payloads.getJSONObject(p);
                         String payloadStr = payload.toJSONString();
 
-                        // 替换JSON数据
-                        HttpRequest modifiedRequest = replaceJsonInRequest(originalRequest, rawData, payloadStr);
-                        // 基于替换后的请求添加标记头
+                        // 将内部的旧topDomain2替换为新topDomain2
+                        String newtopDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+                        HttpRequest modifiedRequest = replaceJsonInRequest(originalRequest, rawData, payloadStr.replace(topDomain2, newtopDomain2));
                         modifiedRequest = modifiedRequest.withAddedHeader("JaySen-FastJson-Scan", "true");
 
                         // 发送请求
                         HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
-//                        Extension.attackReqResps.add(attackReqResp);
                         if (logEnable) {
                             saveLogFile.addToBatch(attackReqResp);
                         }
-                        // 不立即检查DNSLOG，而是添加到批量缓存
-                        CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
+                        CheckDnslogResult.getInstance().addToBatch(newtopDomain2,attackReqResp);
                     }
                 }
             }
 
 //            montoyaApi.logging().logToOutput("所有请求的FastJSON扫描已完成");
         } catch (Exception e) {
-            this.montoyaApi.logging().logToError("FastJSON扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] FastJSON扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] FastJSON扫描出错：" + e.getMessage());
         }
     }
 
@@ -209,6 +209,51 @@ public class Scan {
     }
 
 
+    /***
+     Jackson反序列化漏洞检测（复用FastJson扫描流程）
+     ***/
+    public void jacksonScan(HttpRequestToBeSent request, List<JsonData> rawDatas) {
+        String topDomain1 = "jackson";
+        String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        try {
+            this.montoyaApi.logging().logToOutput("[INFO] 正在Jackson扫描 TargetURL: " + request.url());
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            Config config = new Config(timestamp, topDomain1 + topDomain2, DnslogConfig.getInstance().collaboratorDomain);
+            JSONArray payloads = JSONArray.parseArray(config.jacksonPayload);
+            for (JsonData rawData : rawDatas) {
+                for (int i = 0; i < payloads.size(); i++) {
+                    Object payloadObj = payloads.get(i);
+                    String payloadStr;
+                    if (payloadObj instanceof JSONObject) {
+                        payloadStr = ((JSONObject) payloadObj).toJSONString();
+                    } else if (payloadObj instanceof JSONArray) {
+                        payloadStr = ((JSONArray) payloadObj).toJSONString();
+                    } else {
+                        continue;
+                    }
+                    // 将内部的旧topDomain2替换为新topDomain2
+                    String newtopDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+//                    montoyaApi.logging().logToOutput("oldtopdomain2:" + topDomain2 + " newtopdomain2:" + newtopDomain2);
+//                    montoyaApi.logging().logToOutput("jackson漏扫发送的第" + (i+1) + "个payload：");
+//                    montoyaApi.logging().logToOutput(payloadStr);
+                    HttpRequest modifiedRequest = replaceJsonInRequest(request, rawData, payloadStr.replace(topDomain2, newtopDomain2));
+                    modifiedRequest = modifiedRequest.withAddedHeader("JaySen-Jackson-Scan", "true");
+                    HttpRequestResponse attackReqResp = this.montoyaApi.http().sendRequest(modifiedRequest);
+
+//                    montoyaApi.logging().logToOutput("数据包：");
+//                    montoyaApi.logging().logToOutput(modifiedRequest.bodyToString());
+                    if (logEnable) {
+                        saveLogFile.addToBatch(attackReqResp);
+                    }
+                    CheckDnslogResult.getInstance().addToBatch(newtopDomain2, attackReqResp);
+                }
+            }
+        } catch (Exception e) {
+            this.montoyaApi.logging().logToOutput("[ERROR] Jackson扫描过程出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] Jackson扫描过程出错：" + e.getMessage());
+        }
+    }
+
     /**
      * Log4j 全版本漏洞探测
      * */
@@ -217,12 +262,13 @@ public class Scan {
         String topDomain1 = "log4j";
         String topDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try {
+            this.montoyaApi.logging().logToOutput("[INFO] 正在Log4j扫描 TargetURL: " + request.url());
             String timestamp = String.valueOf(System.currentTimeMillis());
             // 初始化配置
             Config config = new Config(timestamp,topDomain1+topDomain2,DnslogConfig.getInstance().collaboratorDomain);
 
             if (config.log4jPayload == null || config.log4jPayload.isEmpty()) {
-                this.montoyaApi.logging().logToError("Log4j探测失败：Config未配置log4jPayload");
+                this.montoyaApi.logging().logToError("[ERROR] Log4j探测失败：Config未配置log4jPayload");
                 return;
             }
 
@@ -234,17 +280,20 @@ public class Scan {
                 // 修复：getString(i) 提取字符串类型的Payload
                 String payloadStr = payloads.getString(i);
                 if (payloadStr == null || payloadStr.trim().isEmpty()) {
-                    this.montoyaApi.logging().logToOutput("跳过空Payload[" + (i + 1) + "]");
+                    this.montoyaApi.logging().logToOutput("[INFO] 跳过空Payload[" + (i + 1) + "]");
                     continue;
                 }
+                // 将内部的旧topDomain2替换为新topDomain2
+                String newtopDomain2 = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+                String newPayloadStr = payloadStr.replace(topDomain2, newtopDomain2);
                 // 参数值URL编码（请求头无需编码）
-                String encodedPayload = payloadStr;
+                String encodedPayload = newPayloadStr;
                 if (!cryptEnable) {
-                    encodedPayload = URLEncoder.encode(payloadStr, StandardCharsets.UTF_8)
+                    encodedPayload = URLEncoder.encode(newPayloadStr, StandardCharsets.UTF_8)
                             .replace("+", "%20");
                 }
                 // 替换所有请求头和参数（原有逻辑不变）
-                HttpRequest modifiedRequest = replaceAllHeaders(request, payloadStr);
+                HttpRequest modifiedRequest = replaceAllHeaders(request, newPayloadStr);
                 modifiedRequest = replaceAllParameters(modifiedRequest, encodedPayload);
                 modifiedRequest = modifiedRequest.withAddedHeader("JaySen-Log4j-Scan", "true")
                         .withAddedHeader("JaySen-Log4j-Payload-Index", String.valueOf(i + 1));
@@ -255,19 +304,16 @@ public class Scan {
 //                montoyaApi.logging().logToOutput(attackReqResp.request()+"\n");
 //                montoyaApi.logging().logToOutput(attackReqResp.response()+"\n");
                 if (logEnable) {
-                    HttpRequestResponse saveReqResp = attackReqResp;
-
-                    // 保存日志
                     saveLogFile.addToBatch(attackReqResp);
                 }
-                // 暂不校验dnslog  添加缓存
-                CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
+                CheckDnslogResult.getInstance().addToBatch(newtopDomain2,attackReqResp);
 
             }
 
 //            montoyaApi.logging().logToOutput("Log4j全方位探测所有Payload已发送完成");
         } catch (Exception e) {
-            this.montoyaApi.logging().logToError("Log4j全方位扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] Log4j全方位扫描出错：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] Log4j全方位扫描出错：" + e.getMessage());
         }
     }
 
@@ -328,6 +374,7 @@ public class Scan {
     public void springScan(HttpRequestToBeSent request) {
         String originalUrl = request.url();
         String originalPath = request.withRemovedParameters(request.parameters()).path();
+        this.montoyaApi.logging().logToOutput("[INFO] 正在Spring扫描 TargetURL: " + originalUrl);
         //  先判断是否为潜在API URL，不是则直接返回
          if (!UrlFilter.isPotentialApiUrl(originalUrl)) {
  //            montoyaApi.logging().logToOutput("跳过非API URL的spring扫描: " + originalUrl);
@@ -367,11 +414,12 @@ public class Scan {
                     int respCode = attackReqResp.response().statusCode();
                     if (isRealSpringUnauth(attackReqResp.response(),payload)) {
                         executor.submit(() -> mySuiteTab.addRequestInfo(attackReqResp, "Spring未授权访问"));
-                        montoyaApi.logging().logToOutput("发现Spring未授权访问: " + attackReqResp.request().url());
+                        montoyaApi.logging().logToOutput("[INFO] 发现Spring未授权访问: " + attackReqResp.request().url());
 
                     }
                 } catch (Exception e) {
-                    montoyaApi.logging().logToError("Spring扫描出错（路径：" + scanPath + "）: " + e.getMessage());
+                    this.montoyaApi.logging().logToOutput("[ERROR] Spring扫描出错（路径：" + scanPath + "）: " + e.getMessage());
+                    montoyaApi.logging().logToError("[ERROR] Spring扫描出错（路径：" + scanPath + "）: " + e.getMessage());
                 }
             }
         }
@@ -512,7 +560,6 @@ public class Scan {
      判断是否存在shiro框架
      ***/
     public Boolean isShiro(HttpRequestToBeSent request) {
-
         // 避免无限递归
         if (request.header("JaySen-isShiro") != null) {
             return false;
@@ -528,10 +575,12 @@ public class Scan {
             // 通过发送不正确的rememverMe参数在cookie，通过返回的Set-Cookie响应头判断
             String setCookie = response.response().headerValue("Set-Cookie");
             if (setCookie != null && setCookie.contains("rememberMe=deleteMe")) {
+                montoyaApi.logging().logToOutput("目标 " + request.url() + " 是shiro框架");
                 return true;
             }
         } catch (Throwable e) {
-            montoyaApi.logging().logToError("Shiro 框架判断异常: " + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] Shiro 框架判断异常: " + e.getMessage());
+            montoyaApi.logging().logToError("[ERROR] Shiro 框架判断异常: " + e.getMessage());
         }
 
         return false;
@@ -548,6 +597,7 @@ public class Scan {
 //            montoyaApi.logging().logToOutput("目标已shiro550扫描过:"+target);
             return;
         }
+        this.montoyaApi.logging().logToOutput("[INFO] 正在Shiro550扫描 TargetURL: " + request.url());
         String topDomain1 = "shiro550";
         String urldns;
         // 初始化配置
@@ -555,7 +605,7 @@ public class Scan {
         // 加载shirokeys
         List<String> shiroKeys = DnslogConfig.getInstance().getShiroKeys();
         if (shiroKeys == null) {
-            this.montoyaApi.logging().logToError("Shiro550 探测失败：Config未配置shirokeys");
+            this.montoyaApi.logging().logToError("[ERROR] Shiro550 探测失败：Config未配置shirokeys");
             return;
         }
 
@@ -584,7 +634,7 @@ public class Scan {
             // 不立即检查DNSLOG，而是添加到批量缓存
             CheckDnslogResult.getInstance().addToBatch(topDomain2,attackReqResp);
         }
-        montoyaApi.logging().logToOutput("shiro550扫描完毕");
+        montoyaApi.logging().logToOutput("[INFO] shiro550扫描完毕");
     }
     /**
      * 从字符串中提取 HOST:PORT
@@ -616,6 +666,7 @@ public class Scan {
      通过构造特殊URL路径（如 /..;/ /;/ 等）绕过Shiro权限校验
      ***/
     private void shiroBypassScan(HttpRequest request) {
+        this.montoyaApi.logging().logToOutput("[INFO] 正在Shiro权限绕过扫描 TargetURL: " + request.url());
         String originalPath = request.path();
 
         List<String> bypassPatterns = Arrays.asList(
@@ -634,7 +685,8 @@ public class Scan {
                 saveLogFile.addToBatch(baselineResp);
             }
         } catch (Exception e) {
-            this.montoyaApi.logging().logToError("Shiro绕过扫描-请求发送失败：" + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] Shiro绕过扫描-请求发送失败：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] Shiro绕过扫描-请求发送失败：" + e.getMessage());
             return;
         }
 
@@ -682,16 +734,17 @@ public class Scan {
 
                 if (isShiroBypass(baselineStatus, baselineBody, statusCode, bypassBody)) {
                     executor.submit(() -> mySuiteTab.addRequestInfo(attackReqResp, "Shiro权限绕过"));
-                    montoyaApi.logging().logToOutput("发现Shiro权限绕过: " + attackReqResp.request().url());
+                    montoyaApi.logging().logToOutput("[INFO] 发现Shiro权限绕过: " + attackReqResp.request().url());
                     return;
                 }
 
             } catch (Exception e) {
-                this.montoyaApi.logging().logToError("Shiro绕过扫描出错（模式：" + pattern + "）：" + e.getMessage());
+                this.montoyaApi.logging().logToOutput("[ERROR] Shiro绕过扫描出错（模式：" + pattern + "）：" + e.getMessage());
+                this.montoyaApi.logging().logToError("[ERROR] Shiro绕过扫描出错（模式：" + pattern + "）：" + e.getMessage());
             }
         }
 
-        montoyaApi.logging().logToOutput("shiro权限绕过扫描完毕");
+        montoyaApi.logging().logToOutput("[INFO] shiro权限绕过扫描完毕");
     }
 
     private boolean isShiroBypass(int baselineStatus, String baselineBody, int bypassStatus, String bypassBody) {
@@ -725,6 +778,7 @@ public class Scan {
      篡改rememberMe密文末尾字节，通过deleteMe响应判断是否存在Padding Oracle
      ***/
     private void shiro721Scan(HttpRequest request) {
+        this.montoyaApi.logging().logToOutput("[INFO] 正在Shiro721扫描 TargetURL: " + request.url());
         String cookieHeader = request.headerValue("Cookie");
         String rememberMe = null;
         if (cookieHeader != null && !cookieHeader.isEmpty()) {
@@ -736,7 +790,7 @@ public class Scan {
             }
         }
         if (rememberMe == null || rememberMe.isEmpty()) {
-            montoyaApi.logging().logToOutput("无rememberMe cookie，跳过Shiro721检测");
+            montoyaApi.logging().logToOutput("[INFO] 无rememberMe cookie，跳过Shiro721检测");
             return;
         }
 
@@ -744,7 +798,7 @@ public class Scan {
         try {
             ciphertext = Base64.getDecoder().decode(rememberMe);
         } catch (IllegalArgumentException e) {
-            this.montoyaApi.logging().logToOutput("Shiro721: rememberMe Base64解码失败，跳过");
+            this.montoyaApi.logging().logToOutput("[INFO] Shiro721: rememberMe Base64解码失败，跳过");
             return;
         }
         if (ciphertext.length < 32) return;
@@ -759,12 +813,13 @@ public class Scan {
                 .withAddedHeader("JaySen-Shiro721-Scan", "true");
             baselineResp = this.montoyaApi.http().sendRequest(baselineRequest);
         } catch (Exception e) {
-            this.montoyaApi.logging().logToError("Shiro721基线请求发送失败：" + e.getMessage());
+            this.montoyaApi.logging().logToOutput("[ERROR] Shiro721基线请求发送失败：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] Shiro721基线请求发送失败：" + e.getMessage());
             return;
         }
         String baselineSetCookie = baselineResp.response().headerValue("Set-Cookie");
         if (baselineSetCookie != null && baselineSetCookie.contains("rememberMe=deleteMe")) {
-            montoyaApi.logging().logToOutput("Shiro721: 原始session已过期，跳过检测");
+            montoyaApi.logging().logToOutput("[INFO] Shiro721: 原始session已过期，跳过检测");
             return;
         }
 
@@ -792,16 +847,17 @@ public class Scan {
                     hitCount++;
                 }
             } catch (Exception e) {
-                this.montoyaApi.logging().logToError("Shiro721检测出错（位置：" + pos + "）：" + e.getMessage());
+                this.montoyaApi.logging().logToOutput("[ERROR] Shiro721检测出错（位置：" + pos + "）：" + e.getMessage());
+                this.montoyaApi.logging().logToError("[ERROR] Shiro721检测出错（位置：" + pos + "）：" + e.getMessage());
             }
         }
 
         if (hitCount >= 2) {
             // 篡改密文后Shiro仍然反序列化 → Padding Oracle 确认存在
             executor.submit(() -> mySuiteTab.addRequestInfo(baselineResp, "shiro721反序列化"));
-            montoyaApi.logging().logToOutput("发现Shiro-721反序列化漏洞（Padding Oracle确认）: " + request.url());
+            montoyaApi.logging().logToOutput("[INFO] 发现Shiro-721反序列化漏洞（Padding Oracle确认）: " + request.url());
         }
 
-        montoyaApi.logging().logToOutput("shiro721检测完毕");
+        montoyaApi.logging().logToOutput("[INFO] shiro721检测完毕");
     }
 }

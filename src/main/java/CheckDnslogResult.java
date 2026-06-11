@@ -129,7 +129,8 @@ public class CheckDnslogResult {
                 }
             }
             else {
-                montoyaApi.logging().logToError("CollaboratorClient对象为空,请重新获取域名");
+                montoyaApi.logging().logToOutput("[ERROR] CollaboratorClient对象为空,请重新获取域名");
+                montoyaApi.logging().logToError("[ERROR] CollaboratorClient对象为空,请重新获取域名");
             }
         }
 
@@ -141,6 +142,8 @@ public class CheckDnslogResult {
                 String vulnName;
                 if (req.request().headerValue("JaySen-FastJson-Scan") != null) {
                     vulnName = "fastjson反序列化";
+                } else if (req.request().headerValue("JaySen-Jackson-Scan") != null) {
+                    vulnName = "jackson反序列化";
                 } else if (req.request().headerValue("JaySen-Log4j-Scan") != null){
                     vulnName = "log4j反序列化";
                 } else if (req.request().headerValue("JaySen-Shiro550-Scan") != null) {
@@ -148,13 +151,13 @@ public class CheckDnslogResult {
                 } else if (req.request().headerValue("JaySen-Shiro721-Scan") != null) {
                     vulnName = "shiro721反序列化";
                 } else {
-                    vulnName = "fjson/Log4j/shiro550/shiro721";
-                    montoyaApi.logging().logToOutput("fjson/Log4j/shiro550"+req);
+                    vulnName = "fjson/jackson/Log4j/shiro550/shiro721";
+                    montoyaApi.logging().logToOutput("[INFO] fjson/jackson/Log4j/shiro550"+req);
                 }
                 // 标记漏洞（例如添加到结果面板）
                 this.mySuiteTab.addRequestInfo(req,vulnName);
                 // 记录日志
-                this.montoyaApi.logging().logToOutput("发现漏洞：" + req.request().url() + "（关键词：" + hitKeyword + "）");
+                this.montoyaApi.logging().logToOutput("[INFO] 发现漏洞：" + req.request().url() + "（关键词：" + hitKeyword + "）");
             }
         }
 
@@ -173,7 +176,8 @@ public class CheckDnslogResult {
     private JSONArray getCeyeResult() {
         // 校验CEYE APIKey是否存在
         if (this.ceyeApiKey == null || this.ceyeApiKey.trim().isEmpty()) {
-            this.montoyaApi.logging().logToError("CEYE APIKey未配置，无法检查结果");
+            this.montoyaApi.logging().logToOutput("[ERROR] CEYE APIKey未配置，无法检查结果");
+            this.montoyaApi.logging().logToError("[ERROR] CEYE APIKey未配置，无法检查结果");
             return new JSONArray();
         }
 
@@ -200,7 +204,8 @@ public class CheckDnslogResult {
                 JSONArray data = responseJson.getJSONArray("data");
                 // 如果存在记录，返回true
                 if (data != null && data.size() > 0) {
-//                    this.montoyaApi.logging().logToOutput("CEYE检测到DNS记录数量: " + data.size());
+                    this.montoyaApi.logging().logToOutput("[INFO] CEYE检测到DNS记录数量: " + data.size());
+//                    this.montoyaApi.logging().logToOutput(data.toString());
                     JSONArray nameArray = new JSONArray();
                     // 遍历原始数组的每个JSONObject
                     for (int i = 0; i < data.size(); i++) {
@@ -214,10 +219,10 @@ public class CheckDnslogResult {
                     return nameArray;
                 }
             } else {
-                this.montoyaApi.logging().logToError("CEYE API请求失败，响应码： " + response.statusCode() + " URL: " + url);
+                this.montoyaApi.logging().logToError("[ERROR] CEYE API请求失败，响应码： " + response.statusCode() + " URL: " + url);
             }
         } catch (Exception e) {
-            this.montoyaApi.logging().logToError("CEYE结果检查失败：" + e.getMessage());
+            this.montoyaApi.logging().logToError("[ERROR] CEYE结果检查失败：" + e.getMessage());
         }
         return new JSONArray();
     }
@@ -235,7 +240,7 @@ public class CheckDnslogResult {
         DnslogConfig.getInstance().domainToClientMap.put(payload, client);
         // 同时更新配置中的"最后生成的域名"（可选，方便界面显示）
         DnslogConfig.getInstance().collaboratorDomain = payload;
-        montoyaApi.logging().logToOutput("生成Collaborator域名：" + payload);
+        montoyaApi.logging().logToOutput("[INFO] 生成Collaborator域名：" + payload);
         return payload;
     }
 
@@ -266,8 +271,8 @@ public class CheckDnslogResult {
             String result = String.format("%s", queryStr);
             collaboratorResults.add(result);
         }
-        this.montoyaApi.logging().logToOutput("所有CollaboratorClient记录数量: " + collaboratorResults.size() + " 当前的域名：" + DnslogConfig.getInstance().collaboratorDomain );
-        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
+        this.montoyaApi.logging().logToOutput("[INFO] 所有CollaboratorClient记录数量: " + collaboratorResults.size() + " 当前的域名：" + DnslogConfig.getInstance().collaboratorDomain );
+//        this.montoyaApi.logging().logToOutput(JSONArray.toJSONString(collaboratorResults));
         return collaboratorResults;
     }
 

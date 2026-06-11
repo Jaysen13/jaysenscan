@@ -262,6 +262,11 @@ public class MySuiteTab {
         scanPanel.add(fastJsonCheck, scanGbc);
 
         scanGbc.gridy++;
+        JCheckBox jacksonCheck = new JCheckBox("Jackson扫描");
+        jacksonCheck.setSelected(dnslogConfig.jacksonScanEnabled);
+        scanPanel.add(jacksonCheck, scanGbc);
+
+        scanGbc.gridy++;
         JCheckBox log4jCheck = new JCheckBox("Log4J扫描");
         log4jCheck.setSelected(dnslogConfig.log4jScanEnabled);
         scanPanel.add(log4jCheck, scanGbc);
@@ -443,6 +448,7 @@ public class MySuiteTab {
             String targetDomain = targetDomainField.getText().trim();
 
             boolean fastJsonEnabled = fastJsonCheck.isSelected();
+            boolean jacksonEnabled = jacksonCheck.isSelected();
             boolean log4jEnabled = log4jCheck.isSelected();
             boolean springEnabled = springCheck.isSelected();
             boolean shiroEnabled = shiroCheck.isSelected();
@@ -499,6 +505,7 @@ public class MySuiteTab {
             config.targetDomain = targetDomain;
             config.donlogType = "ceye".equals(selectedPlatform) ? Config.DnslogType.CEYE : Config.DnslogType.COLLABORATOR;
             config.fastJsonScanEnabled = fastJsonEnabled;
+            config.jacksonScanEnabled = jacksonEnabled;
             config.log4jScanEnabled = log4jEnabled;
             config.springScanEnabled = springEnabled;
             config.shiroScanEnabled = shiroEnabled;

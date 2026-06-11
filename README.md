@@ -30,7 +30,7 @@
 
 ### 🔍 高危漏洞扫描
 
-- 内置检测：支持 Fastjson 反序列化、Log4j 反序列化、Spring 接口未授权访问、Shiro 反序列化（550/721）、Shiro 权限绕过
+- 内置检测：支持 Fastjson 反序列化、Jackson 反序列化、Log4j 反序列化、Spring 接口未授权访问、Shiro 反序列化（550/721）、Shiro 权限绕过
 - 智能适配：加密环境下自动对 payload 进行加密处理
 - 防重机制：5 分钟内避免重复扫描同一目标，减少冗余请求
 
@@ -208,11 +208,15 @@ if __name__ == '__main__':
 1. 配置 DNSlog 服务（支持 Burp Collaborator 或 CEYE）
    - 专业版 Burp 可使用 Collaborator（需点击"自动生成域名"）
    - 社区版需使用 CEYE 并填写 API 信息
-2. 勾选需要启用的漏洞扫描类型（Fastjson / Log4j / Spring / Shiro）
+2. 勾选需要启用的漏洞扫描类型（Fastjson / Jackson / Log4j / Spring / Shiro）
 3. 点击"保存配置"
+4. 每个 payload 使用独立的 DNS 子域名，命中后可通过前缀（fjson/jackson/log4j/shiro550/shiro721）精确定位具体触发点
 
-![image-20260520161533825](./README.assets/image-20260520161533825.png)
-<img src="./README.assets/image-20260520161625096.png" alt="image-20260520161625096" style="zoom: 67%;" />
+![image-20260611172306861](./README.assets/image-20260611172306861.png)
+
+> 💡 **日志提示**：Output 面板以 `[INFO]` / `[ERROR]` 前缀展示扫描进度和异常。
+
+![image-20260611172412572](./README.assets/image-20260611172412572.png)
 
 然后在Spring目录扫描配置框内有两个框，分别是**过滤后缀名**、**过滤关键词**
 
@@ -252,6 +256,8 @@ if __name__ == '__main__':
 
 ![image-20260520170034623](./README.assets/image-20260520170034623.png)
 
+> 💡 每个 payload 使用独立的 DNS 子域名，命中后可通过前缀 `fjson` 在 DNSlog 中反查到具体触发的 payload。
+
 
 ### 2. AES 加密的 Log4j 漏洞检测
 
@@ -267,7 +273,16 @@ if __name__ == '__main__':
 ![image-20260520171134629](./README.assets/image-20260520171134629.png)
 
 
-### 3. 联动 sqlmap 检测加密 SQL 注入
+### 3. Jackson 反序列化漏洞检测
+
+Jackson 扫描复用 Fastjson 扫描流程，区别在于使用独立的 Jackson payload 集和 DNS 子域名（`jackson` 前缀）。与 Fastjson 类似，插件同样会将 payload 替换到 JSON 数据中并自动加密后发送，DNSlog 回显即确认漏洞。
+
+![image-20260611172151166](./README.assets/image-20260611172151166.png)
+
+> 💡 **精确识别**：每个 Jackson payload 使用随机 DNS 子域名，命中后可通过 DNSlog 日志反查子域名前缀定位到第几条 payload。
+
+
+### 4. 联动 sqlmap 检测加密 SQL 注入
 
 1. 启动 `Aes_Sql.py` 加解密服务
 
@@ -283,7 +298,7 @@ if __name__ == '__main__':
 
 ![SQL 注入联动效果](./README.assets/image-20251129170217229-1764415249254-145.png)
 
-### 4. Shiro 反序列化与权限绕过检测
+### 5. Shiro 反序列化与权限绕过检测
 
 #### Shiro550 检测
 
@@ -306,7 +321,7 @@ if __name__ == '__main__':
 
 ![image-20260520161340223](./README.assets/image-20260520161340223.png)
 
-### 5. Spring 接口未授权访问检测
+### 6. Spring 接口未授权访问检测
 
 1. 在`Spring目录扫描配置`中配置过滤后缀名和关键词，避免对静态资源发起扫描
 2. 插件从 `~/.burp/springapiscan.txt` 加载常见的 Spring 接口路径（如 `/actuator`、`/swagger-ui.html`、`/druid/`、`/doc.html` 等）
@@ -323,6 +338,8 @@ if __name__ == '__main__':
   ![Burp 显示设置](./README.assets/image-20251129163738709-1764415249254-146.png)
 - 加解密接口支持 Java/Go/Node.js 等任意语言，只需保持 JSON 格式一致
 - 扫描记录自动留存，可在插件历史面板查询
+- DNSlog 命中后，同 URL + 同类型漏洞仅记录一条，避免面板重复显示
+- Output 面板以 `[INFO]` / `[ERROR]` 前缀展示扫描进度和异常，异常信息同时写入 Error 和 Output
 
 
 
@@ -343,6 +360,9 @@ if __name__ == '__main__':
 
 - **Q：为什么 Shiro721 扫描没有触发？**  
   A：721 检测需要请求中已有合法的 `rememberMe` cookie（用户已登录），无 cookie 时会自动跳过。
+
+- **Q：如何对应 DNSlog 记录到具体 payload？**  
+  A：每次请求使用独立 DNS 子域名，前缀为 `fjson`/`jackson`/`log4j`/`shiro550`/`shiro721`，在 DNSlog 平台查看子域名即可反查命中项。
 
 - **Q：后续漏洞检测模块还会扩展吗？**  
   A：会的，师傅们可以留言

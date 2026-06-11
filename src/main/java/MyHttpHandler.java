@@ -54,12 +54,14 @@ public class MyHttpHandler implements HttpHandler {
         String targetDomain = DnslogConfig.getInstance().targetDomain;
         String host = httpRequestToBeSent.headerValue("Host");
         String fjson_flag = httpRequestToBeSent.headerValue("JaySen-FastJson-Scan");
+        String jackson_flag = httpRequestToBeSent.headerValue("JaySen-Jackson-Scan");
         String log4j_flag = httpRequestToBeSent.headerValue("JaySen-Log4j-Scan");
         String spring_flag = httpRequestToBeSent.headerValue("JaySen-Spring-Scan");
         String isShiro_flag = httpRequestToBeSent.headerValue("JaySen-isShiro");
         String shiro_flag = httpRequestToBeSent.headerValue("JaySen-Shiro-Scan");
         String reqToBeSent_flag = httpRequestToBeSent.headerValue("JaysenReqToBeSent");
         Boolean fjsonEnable = DnslogConfig.getInstance().fastJsonScanEnabled;
+        Boolean jacksonEnable = DnslogConfig.getInstance().jacksonScanEnabled;
         Boolean log4jEnable = DnslogConfig.getInstance().log4jScanEnabled;
         Boolean springEnable = DnslogConfig.getInstance().springScanEnabled;
         Boolean shiroEnable = DnslogConfig.getInstance().shiroScanEnabled;
@@ -74,6 +76,7 @@ public class MyHttpHandler implements HttpHandler {
 //        if (!shiroEnable) isShiro_flag = "true";
         // 未扫描的赋值flag
         if (fjson_flag == null) fjson_flag = "false";
+        if (jackson_flag == null) jackson_flag = "false";
         if (log4j_flag == null) log4j_flag = "false";
         if (spring_flag == null) spring_flag = "false";
         if (isShiro_flag == null) isShiro_flag = "false";
@@ -97,7 +100,7 @@ public class MyHttpHandler implements HttpHandler {
 //            monApi.logging().logToOutput("fjson:"+fjson_flag);
 //            monApi.logging().logToOutput("log4j:"+log4j_flag);
 //            monApi.logging().logToOutput("shiro:"+shiro_flag);
-            if (fjson_flag.equals("false") && log4j_flag.equals("false") && spring_flag.equals("false") && isShiro_flag.equals("false") && shiro_flag.equals("false")) {
+            if (fjson_flag.equals("false") && jackson_flag.equals("false") && log4j_flag.equals("false") && spring_flag.equals("false") && isShiro_flag.equals("false") && shiro_flag.equals("false")) {
                 // 扫描FastJson
                 if (fjsonEnable) {
                     List<JsonData> jsonData = IsJsonRequest.isJsonRequest(httpRequestToBeSent);
@@ -106,6 +109,18 @@ public class MyHttpHandler implements HttpHandler {
                         if (!scannedMarks.contains(mark)) {
                             scannedMarks.add(mark);
                             executor.submit(() -> scan.fastJsonScan(httpRequestToBeSent, jsonData));
+                        }
+                    }
+                }
+
+                // 扫描Jackson（复用FastJson的JSON解析结果）
+                if (jacksonEnable) {
+                    List<JsonData> jsonData = IsJsonRequest.isJsonRequest(httpRequestToBeSent);
+                    if (!jsonData.isEmpty()) {
+                        mark = "jackson_" + standardUrl;
+                        if (!scannedMarks.contains(mark)) {
+                            scannedMarks.add(mark);
+                            executor.submit(() -> scan.jacksonScan(httpRequestToBeSent, jsonData));
                         }
                     }
                 }
@@ -132,7 +147,7 @@ public class MyHttpHandler implements HttpHandler {
                 // 扫描shiro 首先判断是否是shiro框架
                 if (shiroEnable) {
                     if (scan.isShiro(httpRequestToBeSent)) {
-                        monApi.logging().logToOutput("目标是shiro框架:" + httpRequestToBeSent.url());
+                        monApi.logging().logToOutput("[INFO] 目标是shiro框架:" + httpRequestToBeSent.url());
                         mark = "shiro_" + standardUrl;
                         if (!scannedMarks.contains(mark)) {
                             scannedMarks.add(mark);
@@ -140,7 +155,7 @@ public class MyHttpHandler implements HttpHandler {
                                 try {
                                     scan.shiroScan(httpRequestToBeSent);
                                 } catch (Exception e) {
-                                    monApi.logging().logToOutput("shiro扫描出错：" + e.getMessage());
+                                    monApi.logging().logToOutput("[ERROR] shiro扫描出错：" + e.getMessage());
                                 }
                             });
                         }

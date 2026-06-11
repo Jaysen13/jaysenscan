@@ -185,7 +185,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             newRequest = newRequest.withMethod(newMethod).withBody(newBody);
             return newRequest;
         } catch (Exception e) {
-            montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());
+            montoyaApi.logging().logToError("[ERROR] 构建请求外部数据失败: " + e.getMessage());
         }
         // 若远程接口出现错误，则不更改返回原数据包, 标记接口错误
         return request.withAddedHeader("JKError","true");
@@ -261,7 +261,7 @@ public class MyProxyRequestHandler implements ProxyRequestHandler , ProxyRespons
             newRespon = newRespon.withBody(newBodyBytes);
             return newRespon;
         } catch (Exception e) {
-            montoyaApi.logging().logToError("构建请求外部数据失败: " + e.getMessage());
+            montoyaApi.logging().logToError("[ERROR] 构建请求外部数据失败: " + e.getMessage());
         }
         // 若远程接口出现错误，则不更改返回原数据包 , 并标记接口错误
         return reponse.withAddedHeader("JKError","true");

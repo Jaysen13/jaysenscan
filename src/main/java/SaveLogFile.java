@@ -135,7 +135,7 @@ public class SaveLogFile {
                 } finally {
                     cacheLock.unlock();
                 }
-                montoyaApi.logging().logToError("批量写入日志失败：" + e.getMessage());
+                montoyaApi.logging().logToError("[ERROR] 批量写入日志失败：" + e.getMessage());
             }
         }
     }

@@ -14,6 +14,7 @@
 import burp.api.montoya.http.handler.HttpRequestToBeSent;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.params.HttpParameter;
+import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.params.ParsedHttpParameter;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
@@ -39,8 +40,8 @@ public class IsJsonRequest {
             jsonDataList.add(new JsonData(body, JsonData.SourceType.REQUEST_BODY, null));
         }
 
-        // 2. 检测GET查询参数值中的JSON
-        List<ParsedHttpParameter> parameters = request.parameters();
+        // 2. 检测GET查询参数值中的JSON（按类型过滤，只取URL参数）
+        List<ParsedHttpParameter> parameters = request.parameters(HttpParameterType.URL);
         for (HttpParameter param : parameters) {
             String paramValue = param.value();
             if (isJsonString(paramValue) && !isLog4jPayload(paramValue)) {
@@ -72,8 +73,8 @@ public class IsJsonRequest {
             jsonDataList.add(new JsonData(body, JsonData.SourceType.REQUEST_BODY, null));
         }
 
-        // 2. 检测GET查询参数值中的JSON
-        List<ParsedHttpParameter> parameters = request.request().parameters();
+        // 2. 检测GET查询参数值中的JSON（按类型过滤，只取URL参数）
+        List<ParsedHttpParameter> parameters = request.request().parameters(HttpParameterType.URL);
         for (HttpParameter param : parameters) {
             String paramValue = param.value();
             if (isJsonString(paramValue) && !isLog4jPayload(paramValue)) {

@@ -32,7 +32,7 @@ tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
-version = "1.4"
+version = "1.5"
 
 tasks.jar {
     val appName = "JaySenScan"
